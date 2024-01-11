@@ -124,6 +124,25 @@ class WordInfo:
         result = '\n'.join([f'{k}: {v}' for k, v in data.items() if v is not None])
         return result
 
+    def short_record(self):
+        forms = [form[0] for form in self.morphology]
+        if len(forms) > 2:
+            p1 = os.path.commonprefix([forms[0], forms[1]])
+            p2 = os.path.commonprefix([forms[0], forms[1]])
+            prefix = p1 if len(p1) > len(p2) else p2
+            if len(prefix) > 3:
+                if forms[0] == prefix:
+                    short = forms[0]
+                else:
+                    short = forms[0].replace(prefix, f'{prefix}/')
+                for form in forms[1:]:
+                    short += ', ' + form.replace(prefix, '-')
+            else:
+                short = ', '.join(forms)
+        else:
+            short = forms[0]
+        return short
+
 
 def _remove_eki_tags(element):
     result = ''.join([el.text for el in element.contents])

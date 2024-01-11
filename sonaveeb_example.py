@@ -5,7 +5,7 @@ import sonaveeb
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Anki Sonaveeb')
+    parser = argparse.ArgumentParser('Sonaveeb example')
     parser.add_argument('word')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
