@@ -33,19 +33,31 @@ class Sonaveeb:
         resp = self._request(DETAILS_URL.format(word_id=word_id))
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
-    def _parse_word_id(self, dom):
-        word_id = dom.find(attrs=dict(name='word-id'))
-        if word_id is not None:
-            word_id = word_id['value']
-        return word_id
+    def _parse_homonym_ids(self, dom, lang=None):
+        results = []
+        for homonym in dom.find_all(attrs=dict(name='word-id')):
+            kwargs = {'word_id': homonym['value']}
+            if language := homonym.find(class_='lang-code'):
+                kwargs['lang'] = language.string
+            if name := homonym.find(class_='homonym-name'):
+                kwargs['name'] = name.span.string
+            if matches := homonym.find(class_='homonym-matches'):
+                kwargs['matches'] = matches.string
+            if summary := homonym.find(class_='homonym-intro'):
+                kwargs['summary'] = summary.string
+            results.append(SearchCandidate(**kwargs))
+        # Filter by language
+        if lang is not None:
+            results = [r for r in results if r.lang == lang]
+        return results
 
     def _parse_forms(self, dom):
         return [a['data-word'] for a in dom.find(class_='word-details').find_all('a', 'word-form')]
 
-    def _parse_word_info(self, dom, word):
+    def _parse_word_info(self, dom):
         info = WordInfo()
         info.word = dom.find(class_='homonym-name').span.string
-        info.url = SEARCH_URL.format(word=word)
+        info.url = SEARCH_URL.format(word=info.word)
         info.pos = dom.find(class_='content-title').find(class_='tag').string
         info.lexemes = []
         for match in dom.find_all(id=re.compile('^lexeme-section')):
@@ -70,29 +82,55 @@ class Sonaveeb:
             info.morphology.append(entry)
         return info
 
-    def get_word_info(self, word, debug=False):
-        # Look-up base form word ID
+    def get_candidates(self, word, lang='et', debug=False):
+        # Request word lookup page
         dom = self._word_lookup_dom(word)
-        word_id = self._parse_word_id(dom)
+
+        # Save HTML page for debugging
+        if debug:
+            open(os.path.join('debug', f'lookup_{word}.html'), 'w').write(dom.prettify())
+
+        # Parse results
+        homonyms = self._parse_homonym_ids(dom, lang='et')
 
         # If not found, the word may be in conjugated form. Find the base form
-        if word_id is None:
+        if len(homonyms) == 0:
             forms = self._parse_forms(dom)
-            word = forms[0]
-            dom = self._word_lookup_dom(word)
-            word_id = self._parse_word_id(dom)
+            dom = self._word_lookup_dom(forms[0])
+            homonyms = self._parse_homonym_ids(dom, lang='et')
+        else:
+            forms = [word]
 
-        # The word is not found
-        if word_id is None:
+        return forms, homonyms
+
+    def get_word_info_by_id(self, word_id, debug=False):
+        # Request word details page
+        dom = self._word_details_dom(word_id)
+
+        # Save HTML page for debugging
+        if debug:
+            open(os.path.join('debug', f'details_{word_id}.html'), 'w').write(dom.prettify())
+
+        # Parse results
+        word_info = self._parse_word_info(dom)
+        return word_info
+
+    def get_word_info(self, word, lang='et', debug=False):
+        forms, homonyms = self.get_candidates(word, lang, debug)
+        if len(homonyms) > 0:
+            word_id = homonyms[0].word_id
+            return self.get_word_info_by_id(word_id, debug)
+        else:
             return None
 
-        # Look-up word details
-        dom = self._word_details_dom(word_id)
-        if debug:
-            open(os.path.join('debug', f'{word}.html'), 'w').write(dom.prettify())
 
-        word_info = self._parse_word_info(dom, word)
-        return word_info
+@dc.dataclass
+class SearchCandidate:
+    word_id: int
+    lang: str
+    name: str = None
+    matches: str = None
+    summary: str = None
 
 
 @dc.dataclass
