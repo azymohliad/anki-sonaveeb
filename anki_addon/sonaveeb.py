@@ -33,8 +33,9 @@ class Sonaveeb:
         resp = self._request(DETAILS_URL.format(word_id=word_id))
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
-    def _parse_homonym_ids(self, dom, lang=None):
-        results = []
+    def _parse_search_results(self, dom, lang=None):
+        # Parse homonyms list
+        homonyms = []
         for homonym in dom.find_all(attrs=dict(name='word-id')):
             kwargs = {'word_id': homonym['value']}
             if language := homonym.find(class_='lang-code'):
@@ -45,14 +46,16 @@ class Sonaveeb:
                 kwargs['matches'] = matches.string
             if summary := homonym.find(class_='homonym-intro'):
                 kwargs['summary'] = summary.string
-            results.append(SearchCandidate(**kwargs))
+            homonyms.append(SearchCandidate(**kwargs))
         # Filter by language
         if lang is not None:
-            results = [r for r in results if r.lang == lang]
-        return results
+            homonyms = [r for r in homonyms if r.lang == lang]
+        # Parse forms
+        alt_forms = [b['data-word'] for b in dom.find_all('button', class_='word-form')]
+        return homonyms, alt_forms
 
-    def _parse_forms(self, dom):
-        return [a['data-word'] for a in dom.find(class_='word-details').find_all('a', 'word-form')]
+    # def _parse_forms(self, dom):
+    #     return [a['data-word'] for a in dom.find(class_='word-details').find_all('a', 'word-form')]
 
     def _parse_word_info(self, dom):
         info = WordInfo()
@@ -91,17 +94,8 @@ class Sonaveeb:
             open(os.path.join('debug', f'lookup_{word}.html'), 'w').write(dom.prettify())
 
         # Parse results
-        homonyms = self._parse_homonym_ids(dom, lang='et')
-
-        # If not found, the word may be in conjugated form. Find the base form
-        if len(homonyms) == 0:
-            forms = self._parse_forms(dom)
-            dom = self._word_lookup_dom(forms[0])
-            homonyms = self._parse_homonym_ids(dom, lang='et')
-        else:
-            forms = [word]
-
-        return forms, homonyms
+        homonyms, alt_forms = self._parse_search_results(dom, lang='et')
+        return homonyms, alt_forms
 
     def get_word_info_by_id(self, word_id, debug=False):
         # Request word details page
@@ -116,7 +110,9 @@ class Sonaveeb:
         return word_info
 
     def get_word_info(self, word, lang='et', debug=False):
-        forms, homonyms = self.get_candidates(word, lang, debug)
+        homonyms, forms = self.get_candidates(word, lang, debug)
+        if len(homonyms) == 0 and len(forms) > 0:
+            homonyms, forms = self.get_candidates(forms[0], lang, debug)
         if len(homonyms) > 0:
             word_id = homonyms[0].word_id
             return self.get_word_info_by_id(word_id, debug)

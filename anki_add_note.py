@@ -1,8 +1,15 @@
 #!/usr/bin/env python
 
+import os
+import sys
 import argparse
-import sonaveeb
 from anki.collection import Collection
+
+ADDON_PATH = os.path.join(os.path.dirname(__file__), 'anki_addon')
+sys.path.append(ADDON_PATH)
+
+import sonaveeb
+
 
 ANKI_COLLECTION = '/home/azymohliad/.var/app/net.ankiweb.Anki/data/Anki2/User 1/collection.anki2'
 

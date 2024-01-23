@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
+import os
+import sys
 import argparse
+
+ADDON_PATH = os.path.join(os.path.dirname(__file__), 'anki_addon')
+sys.path.append(ADDON_PATH)
+
 import sonaveeb
 
 
@@ -11,5 +17,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     sv = sonaveeb.Sonaveeb()
-    info = sv.get_word_info(args.word, args.debug)
+    info = sv.get_word_info(args.word, debug=args.debug)
     print(info.summary(lang='uk'))
