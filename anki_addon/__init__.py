@@ -4,8 +4,13 @@ from aqt.qt import QAction
 
 from .ui import SonaveebNoteDialog
 
+def open_sonaveeb_dialog():
+    global win
+    if win is None:
+        win = SonaveebNoteDialog()
+    win.show()
 
-win = SonaveebNoteDialog()
+win = None
 action = QAction("Add notes from Sõnaveeb", mw)
-qconnect(action.triggered, win.show)
+qconnect(action.triggered, open_sonaveeb_dialog)
 mw.form.menuTools.addAction(action)
