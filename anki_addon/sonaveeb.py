@@ -8,12 +8,13 @@ import bs4
 
 
 BASE_URL = 'https://sonaveeb.ee'
-SEARCH_URL = 'https://sonaveeb.ee/search/unif/dlall/dsall/{word}/1'
+SEARCH_URL = 'https://sonaveeb.ee/search/unif/dlall/dsall/{word}'
 DETAILS_URL = 'https://sonaveeb.ee/worddetails/unif/{word_id}'
 
 
 class Sonaveeb:
     def __init__(self):
+        print('Initializing Sonaveeb')
         self.session = requests.Session()
         # Obtain session cookies (wl_sess)
         # Without it other requests won't work
@@ -36,8 +37,12 @@ class Sonaveeb:
     def _parse_search_results(self, dom, lang=None):
         # Parse homonyms list
         homonyms = []
-        for homonym in dom.find_all(attrs=dict(name='word-id')):
-            kwargs = {'word_id': homonym['value']}
+        for homonym in dom.find_all('li', class_='homonym-list-item'):
+            kwargs = {}
+            if word_id := homonym.find('input', attrs=dict(name='word-id')):
+                kwargs['word_id'] = word_id['value']
+            if url := homonym.find('input', attrs=dict(name='word-select-url')):
+                kwargs['url'] = BASE_URL + '/' + url['value']
             if language := homonym.find(class_='lang-code'):
                 kwargs['lang'] = language.string
             if name := homonym.find(class_='homonym-name'):
@@ -54,35 +59,32 @@ class Sonaveeb:
         alt_forms = [b['data-word'] for b in dom.find_all('button', class_='word-form')]
         return homonyms, alt_forms
 
-    # def _parse_forms(self, dom):
-    #     return [a['data-word'] for a in dom.find(class_='word-details').find_all('a', 'word-form')]
-
     def _parse_word_info(self, dom):
         info = WordInfo()
         info.word = dom.find(class_='homonym-name').span.string
-        info.url = SEARCH_URL.format(word=info.word)
         info.pos = dom.find(class_='content-title').find(class_='tag').string
         info.lexemes = []
         for match in dom.find_all(id=re.compile('^lexeme-section')):
-                lexeme = Lexeme()
-                definition = match.find(id=re.compile('^definition-entry'))
-                if definition is not None:
-                    lexeme.definition = _remove_eki_tags(definition.span)
-                lexeme.tags = [t.string for t in match.find_all(class_='tag')]
-                lexeme.synonyms = [a.span.span.string for a in match.find_all('a', class_='synonym')]
-                lexeme.translations = {}
-                for translation in match.find_all(id=re.compile('^matches-show-more-panel')):
-                    lang = translation.find(class_='lang-code').string
-                    values = [_remove_eki_tags(a.span.span) for a in translation.find_all('a', class_='matching-word')]
-                    lexeme.translations[lang] = values
-                lexeme.examples = [s.string for s in match.find_all(class_='example-text-value')]
-                info.lexemes.append(lexeme)
+            lexeme = Lexeme()
+            definition = match.find(id=re.compile('^definition-entry'))
+            if definition is not None:
+                lexeme.definition = _remove_eki_tags(definition.span)
+            lexeme.tags = [t.string for t in match.find_all(class_='tag')]
+            lexeme.synonyms = [a.span.span.string for a in match.find_all('a', class_='synonym')]
+            lexeme.translations = {}
+            for translation in match.find_all(id=re.compile('^matches-show-more-panel')):
+                lang = translation.find(class_='lang-code').string
+                values = [_remove_eki_tags(a.span.span) for a in translation.find_all('a', class_='matching-word')]
+                lexeme.translations[lang] = values
+            lexeme.examples = [s.string for s in match.find_all(class_='example-text-value')]
+            info.lexemes.append(lexeme)
 
         info.morphology = []
-        motphology_table = dom.find(class_='morphology-paradigm').find('table')
-        for row in motphology_table.find_all('tr'):
-            entry = tuple((_remove_eki_tags(c.span) for c in row.find_all('td') if c.span))
-            info.morphology.append(entry)
+        if morphology_paradigm := dom.find(class_='morphology-paradigm'):
+            motphology_table = morphology_paradigm.find('table')
+            for row in motphology_table.find_all('tr'):
+                entry = tuple((_remove_eki_tags(c.span) for c in row.find_all('td') if c.span))
+                info.morphology.append(entry)
         return info
 
     def get_candidates(self, word, lang='et', debug=False):
@@ -97,16 +99,18 @@ class Sonaveeb:
         homonyms, alt_forms = self._parse_search_results(dom, lang='et')
         return homonyms, alt_forms
 
-    def get_word_info_by_id(self, word_id, debug=False):
+    def get_word_info_by_candidate(self, candidate, debug=False):
         # Request word details page
-        dom = self._word_details_dom(word_id)
+        dom = self._word_details_dom(candidate.word_id)
 
         # Save HTML page for debugging
         if debug:
-            open(os.path.join('debug', f'details_{word_id}.html'), 'w').write(dom.prettify())
+            open(os.path.join('debug', f'details_{candidate.name}.html'), 'w').write(dom.prettify())
 
         # Parse results
         word_info = self._parse_word_info(dom)
+        word_info.word_id = candidate.word_id
+        word_info.url = candidate.url
         return word_info
 
     def get_word_info(self, word, lang='et', debug=False):
@@ -114,8 +118,7 @@ class Sonaveeb:
         if len(homonyms) == 0 and len(forms) > 0:
             homonyms, forms = self.get_candidates(forms[0], lang, debug)
         if len(homonyms) > 0:
-            word_id = homonyms[0].word_id
-            return self.get_word_info_by_id(word_id, debug)
+            return self.get_word_info_by_candidate(homonyms[0], debug)
         else:
             return None
 
@@ -123,6 +126,7 @@ class Sonaveeb:
 @dc.dataclass
 class SearchCandidate:
     word_id: int
+    url: str
     lang: str
     name: str = None
     matches: str = None
@@ -141,6 +145,7 @@ class Lexeme:
 @dc.dataclass
 class WordInfo:
     word: str = None
+    word_id: int = None
     url: str = None
     pos: str = None
     lexemes: tp.List[Lexeme] = None
@@ -173,8 +178,10 @@ class WordInfo:
                     short += ', ' + form.replace(prefix, '-')
             else:
                 short = ', '.join(forms)
-        else:
+        elif len(forms) > 0:
             short = forms[0]
+        else:
+            short = self.word
         return short
 
 

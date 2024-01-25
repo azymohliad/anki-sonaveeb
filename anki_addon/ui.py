@@ -1,25 +1,28 @@
 from aqt.qt import (
     pyqtSignal, Qt, QSizePolicy,
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QButtonGroup, QStackedWidget, QComboBox,
+    QButtonGroup, QStackedWidget, QComboBox, QGroupBox, QScrollArea,
 )
 from aqt.operations import QueryOp
-from aqt import mw
+from aqt.theme import theme_manager
+from aqt import mw, colors
 
 from .sonaveeb import Sonaveeb
 
 
 class SonaveebNoteDialog(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, sonaveeb=None, parent=None):
+        super().__init__(parent=parent)
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Add Sõnaveeb Notes')
+        self.resize(600, 600)
 
         # Add header bar
         # - Add deck selector
         self._deck_selector = QComboBox()
         for deck in mw.col.decks.all_names_and_ids():
             self._deck_selector.addItem(deck.name, userData=deck.id)
+        self._deck_selector.currentIndexChanged.connect(self.deck_changed)
         # - Add language selector
         languages = {
             'uk': 'Українська',
@@ -42,6 +45,7 @@ class SonaveebNoteDialog(QWidget):
 
         # Add search bar
         self._search = QLineEdit()
+        self._search.setFocus()
         self._search.returnPressed.connect(self.search_triggered)
         self._search_button = QPushButton('Search')
         self._search_button.clicked.connect(self.search_triggered)
@@ -50,70 +54,65 @@ class SonaveebNoteDialog(QWidget):
         search_bar.addWidget(self._search_button)
         search_bar.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        # Add search results UI
+        # Add content UI
         self._form_selector = SelectorRow()
         self._form_selector.selected.connect(self.form_selected)
-        self._info_status = QLabel()
-        self._info_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._info_stack = QStackedWidget()
-        self._info_stack.addWidget(self._info_status)
-        self._info_stack.setCurrentWidget(self._info_status)
-        results_layout = QVBoxLayout()
-        results_layout.addWidget(self._form_selector)
-        results_layout.addWidget(self._info_stack)
-        self._search_results = QWidget()
-        self._search_results.setLayout(results_layout)
-        self._search_status = QLabel()
-        self._search_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._search_results_layout = QVBoxLayout()
+        self._search_results_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        search_results_container = QWidget()
+        search_results_container.setLayout(self._search_results_layout)
+        search_results_scrollarea = QScrollArea()
+        search_results_scrollarea.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        search_results_scrollarea.setWidget(search_results_container)
+        search_results_scrollarea.setWidgetResizable(True)
+        content_layout = QVBoxLayout()
+        content_layout.addWidget(self._form_selector)
+        content_layout.addWidget(search_results_scrollarea)
+        self._content = QWidget()
+        self._content.setLayout(content_layout)
+        self._status = QLabel()
+        self._status.setStyleSheet(f'font-size: 18pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self._status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_stack = QStackedWidget()
-        self._content_stack.addWidget(self._search_results)
-        self._content_stack.addWidget(self._search_status)
-        self._content_stack.setCurrentWidget(self._search_status)
-
-        # Add control bar
-        self._add_button = QPushButton('Add note')
-        self._add_button.setEnabled(False)
-        self._add_button.clicked.connect(self.add_clicked)
+        self._content_stack.addWidget(self._content)
+        self._content_stack.addWidget(self._status)
+        self._content_stack.setCurrentWidget(self._status)
 
         layout = QVBoxLayout()
         layout.addLayout(header_bar)
         layout.addLayout(search_bar)
         layout.addWidget(self._content_stack)
-        layout.addWidget(self._add_button)
         self.setLayout(layout)
+        self._search.setFocus()
+        self.set_status('Search something :)')
 
-        self._sonaveeb = Sonaveeb()
-        self._homonyms = []
-        self._info_panels = {}
+        self._sonaveeb = sonaveeb or Sonaveeb()
 
-    @property
     def lang_code(self):
         return self._lang_selector.currentData()
 
-    @property
     def deck_id(self):
         return self._deck_selector.currentData()
 
-    def set_search_status(self, status):
-        self._search_status.setText(status)
-        self._content_stack.setCurrentWidget(self._search_status)
+    def search_results(self):
+        return [
+            self._search_results_layout.itemAt(i).widget()
+            for i in range(self._search_results_layout.count())
+        ]
 
-    def set_info_status(self, status):
-        self._info_status.setText(status)
-        self._info_stack.setCurrentWidget(self._info_status)
+    def set_status(self, status):
+        self._status.setText(status)
+        self._content_stack.setCurrentWidget(self._status)
 
-    def request_word_info(self, word_id):
-        self.set_info_status('Loading...')
-        operation = QueryOp(
-            parent=self,
-            op=lambda col: self._sonaveeb.get_word_info_by_id(word_id),
-            success=lambda word_info: self.word_info_received(word_id, word_info)
-        )
-        operation.run_in_background()
+    def clear_search_results(self):
+        self._form_selector.clear()
+        while self._search_results_layout.count():
+            child = self._search_results_layout.takeAt(0)
+            child.widget().deleteLater()
 
     def request_search(self, query):
         self._search_button.setEnabled(False)
-        self.set_search_status('Searching...')
+        self.set_status('Searching...')
         operation = QueryOp(
             parent=self,
             op=lambda col: self._sonaveeb.get_candidates(query),
@@ -122,15 +121,12 @@ class SonaveebNoteDialog(QWidget):
         operation.run_in_background()
 
     def search_triggered(self):
+        self.clear_search_results()
         query = self._search.text().strip()
         if query != '':
             self.request_search(query)
-            self._add_button.setText('Add note')
-            self._add_button.setEnabled(False)
-            self._form_selector.clear()
-            for info_panel in self._info_panels.values():
-                info_panel.deleteLater()
-            self._info_panels.clear()
+        else:
+            self.set_status('Search something :)')
 
     def form_selected(self, form):
         print(f'Selected form: {form}')
@@ -138,88 +134,161 @@ class SonaveebNoteDialog(QWidget):
         self.search_triggered()
 
     def language_changed(self, _index):
-        lang = self.lang_code
-        for panel in self._info_panels.values():
-            panel.set_translation_language(lang)
+        lang = self.lang_code()
+        for word_panel in self.search_results():
+            word_panel.set_translation_language(lang)
 
-    def add_clicked(self):
-        info_widget = self._info_stack.currentWidget()
-        if isinstance(info_widget, WordInfoPanel):
-            data = info_widget.data
-            node_type = mw.col.models.id_for_name('Basic (and reversed card)')
-            note = mw.col.new_note(node_type)
-            note['Front'] = data.short_record()
-            note['Back'] = ', '.join(data.lexemes[0].translations.get('uk', ['<no translation>'])[:3])
-            note.add_tag(data.pos)
-            mw.col.add_note(note, self.deck_id)
-            self._add_button.setText('Note added')
-            self._add_button.setEnabled(False)
+    def deck_changed(self, _index):
+        deck_id = self.deck_id()
+        for word_panel in self.search_results():
+            word_panel.set_deck(deck_id)
 
     def search_results_received(self, result):
-        self._homonyms, alt_forms = result
+        homonyms, alt_forms = result
         self._search_button.setEnabled(True)
-        if len(self._homonyms) == 0:
+        if len(homonyms) == 0:
             if len(alt_forms) == 0:
-                self.set_search_status('Not found :(')
+                self.set_status('Not found :(')
             elif len(alt_forms) == 1:
                 self.request_search(alt_forms[0])
             else:
                 self._form_selector.set_label('Select base form:')
                 self._form_selector.set_options(alt_forms)
                 self._form_selector.show()
-                self._content_stack.setCurrentWidget(self._search_results)
-                self.set_info_status('')
+                self._content_stack.setCurrentWidget(self._content)
         else:
             self._form_selector.set_options(alt_forms)
             self._form_selector.set_label('See also:')
             self._form_selector.setVisible(len(alt_forms) > 0)
-            self._content_stack.setCurrentWidget(self._search_results)
-            self.request_word_info(self._homonyms[0].word_id)
-
-    def word_info_received(self, word_id, word_info):
-        if word_info is None:
-            self._add_button.setEnabled(False)
-            self.set_info_status('Failed to obtain word info :(')
-        else:
-            info_panel = WordInfoPanel(word_info, translate=self.lang_code)
-            self._info_panels[word_id] = info_panel
-            self._info_stack.addWidget(info_panel)
-            self._info_stack.setCurrentWidget(info_panel)
-            # Find existing notes
-            # query = self.build_search_string(word_info.short_record(), SearchNode(field_name=field_name))
-            existing_notes = mw.col.find_notes(f'front:"{word_info.short_record()}"')
-            if len(existing_notes) != 0:
-                self._add_button.setEnabled(False)
-                self._add_button.setText('Note already exists!')
-            else:
-                self._add_button.setEnabled(True)
+            self._content_stack.setCurrentWidget(self._content)
+            for homonym in homonyms:
+                word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.lang_code())
+                self._search_results_layout.addWidget(word_panel)
 
 
-class WordInfoPanel(QWidget):
-    def __init__(self, data, translate=None, parent=None):
+
+class WordInfoPanel(QGroupBox):
+    def __init__(self, search_info, sonaveeb, deck_id, lang, parent=None):
         super().__init__(parent=parent)
-        self.data = data
-        self._title = QLabel(f'<a href="{data.url}"><h3>{data.word}</h3></a>')
+        # Set state
+        self.deck_id = deck_id
+        self.lang = lang
+        self.search_info = search_info
+        self.word_info = None
+        self._sonaveeb = sonaveeb
+        # Add status label
+        self._status = QLabel()
+        self._status.setStyleSheet(f'font-size: 16pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self._status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Add content UI
+        self._title = QLabel()
         self._title.setTextFormat(Qt.TextFormat.RichText)
         self._title.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self._title.setOpenExternalLinks(True)
-        self._morphology = QLabel(data.short_record())
-        self._tags = QLabel(f'Tags: {data.pos}')
+        self._morphology = QLabel()
+        self._tags = QLabel()
         self._translations = QLabel()
+        data_layout = QVBoxLayout()
+        data_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        data_layout.addWidget(self._title)
+        data_layout.addWidget(self._morphology)
+        data_layout.addWidget(self._tags)
+        data_layout.addWidget(self._translations)
+        self._add_button = QPushButton()
+        self._add_button.setEnabled(False)
+        self._add_button.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
+        self._add_button.clicked.connect(self.add_clicked)
+        buttons_layout = QVBoxLayout()
+        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        buttons_layout.addWidget(self._add_button)
+        content_layout = QHBoxLayout()
+        content_layout.addLayout(data_layout)
+        content_layout.addLayout(buttons_layout)
+        self._content = QWidget()
+        self._content.setLayout(content_layout)
+        # Populate the UI
+        self._stack = QStackedWidget()
+        self._stack.addWidget(self._status)
+        self._stack.addWidget(self._content)
+        self._stack.setCurrentWidget(self._status)
         layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        layout.addWidget(self._title)
-        layout.addWidget(self._morphology)
-        layout.addWidget(self._tags)
-        layout.addWidget(self._translations)
+        layout.addWidget(self._stack)
         self.setLayout(layout)
-        if translate is not None:
-            self.set_translation_language(translate)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.setMaximumWidth(600)
+
+        # Request word info
+        self.set_note_added(False)
+        self.request_word_info()
+
+    def translation(self):
+        if self.word_info is None or self.lang is None:
+            return None
+        fallback = ['Translation unavailable']
+        translations = self.word_info.lexemes[0].translations.get(self.lang, fallback)
+        translations = ', '.join(translations[:3])
+        return translations
 
     def set_translation_language(self, lang):
-        translations = self.data.lexemes[0].translations.get(lang, ['Translation unavailable'])
-        translations = ', '.join(translations[:3])
-        self._translations.setText(translations)
+        self.lang = lang
+        if self.word_info is not None:
+            self._translations.setText(self.translation())
+
+    def set_deck(self, deck_id):
+        self.deck_id = deck_id
+        self.check_note_added()
+
+    def set_status(self, status):
+        self._status.setText(status)
+        self._stack.setCurrentWidget(self._status)
+
+    def set_word_info(self, data):
+        self.word_info = data
+        self._title.setText(f'<a href="{data.url}"><h3>{data.word}</h3></a>')
+        self._morphology.setText(data.short_record())
+        self._tags.setText(f'Tags: {data.pos}')
+        if self.lang is not None:
+            self._translations.setText(self.translation())
+        self._stack.setCurrentWidget(self._content)
+
+    def set_note_added(self, state):
+        self._add_button.setText('Note added' if state else 'Add note')
+        self._add_button.setDisabled(state)
+
+    def check_note_added(self):
+        # TODO: Add deck to search string
+        existing_notes = mw.col.find_notes(f'front:"{self.word_info.short_record()}"')
+        self.set_note_added(len(existing_notes) != 0)
+
+    def request_word_info(self):
+        self.set_status('Loading...')
+        operation = QueryOp(
+            parent=self,
+            op=lambda col: self._sonaveeb.get_word_info_by_candidate(self.search_info),
+            success=self.word_info_received
+        ).failure(self.handle_request_error)
+        operation.run_in_background()
+
+    def handle_request_error(self, error):
+        print(error)
+        self.set_status('Error :(')
+
+    def word_info_received(self, word_info):
+        if word_info is None:
+            self._add_button.setEnabled(False)
+            self.set_status('Failed to obtain word info :(')
+        else:
+            self.set_word_info(word_info)
+            self.check_note_added()
+
+    def add_clicked(self):
+        node_type = mw.col.models.id_for_name('Basic (and reversed card)')
+        note = mw.col.new_note(node_type)
+        note['Front'] = self.word_info.short_record()
+        note['Back'] = self.translation()
+        note.add_tag(self.word_info.pos)
+        mw.col.add_note(note, self.deck_id)
+        self.set_note_added(True)
 
 
 class SelectorRow(QWidget):
