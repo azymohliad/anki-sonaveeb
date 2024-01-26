@@ -62,12 +62,12 @@ class Sonaveeb:
     def _parse_word_info(self, dom):
         info = WordInfo()
         info.word = dom.find(class_='homonym-name').span.string
-        info.pos = dom.find(class_='content-title').find(class_='tag').string
+        if pos := dom.find(class_='content-title').find(class_='tag'):
+            info.pos = pos.string
         info.lexemes = []
         for match in dom.find_all(id=re.compile('^lexeme-section')):
             lexeme = Lexeme()
-            definition = match.find(id=re.compile('^definition-entry'))
-            if definition is not None:
+            if definition := match.find(id=re.compile('^definition-entry')):
                 lexeme.definition = _remove_eki_tags(definition.span)
             lexeme.tags = [t.string for t in match.find_all(class_='tag')]
             lexeme.synonyms = [a.span.span.string for a in match.find_all('a', class_='synonym')]

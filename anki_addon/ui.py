@@ -216,13 +216,13 @@ class WordInfoPanel(QGroupBox):
         self._title.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self._title.setOpenExternalLinks(True)
         self._morphology = QLabel()
-        self._tags = QLabel()
+        self._pos = QLabel()
         self._translations = QLabel()
         data_layout = QVBoxLayout()
         data_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         data_layout.addWidget(self._title)
         data_layout.addWidget(self._morphology)
-        data_layout.addWidget(self._tags)
+        data_layout.addWidget(self._pos)
         data_layout.addWidget(self._translations)
         self._add_button = QPushButton()
         self._add_button.setEnabled(False)
@@ -256,16 +256,19 @@ class WordInfoPanel(QGroupBox):
     def translation(self):
         if self.word_info is None or self.lang is None:
             return None
-        fallback = ['Translation unavailable']
-        translations = self.word_info.lexemes[0].translations.get(self.lang, fallback)
-        translations = [t.replace('!', '') for t in translations]
-        translations = ', '.join(translations[:3])
+        translations = self.word_info.lexemes[0].translations.get(self.lang)
+        if translations is not None:
+            translations = [t.replace('!', '') for t in translations]
+            translations = ', '.join(translations[:3])
         return translations
 
     def set_translation_language(self, lang):
         self.lang = lang
-        if self.word_info is not None:
-            self._translations.setText(self.translation())
+        if translation := self.translation():
+            self._translations.setText(translation)
+        else:
+            self._translations.setText('Translation unavailable')
+            self._translations.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
 
     def set_deck(self, deck_id):
         self.deck_id = deck_id
@@ -279,9 +282,9 @@ class WordInfoPanel(QGroupBox):
         self.word_info = data
         self._title.setText(f'<a href="{data.url}"><h3>{data.word}</h3></a>')
         self._morphology.setText(data.short_record())
-        self._tags.setText(f'Tags: {data.pos}')
-        if self.lang is not None:
-            self._translations.setText(self.translation())
+        self._pos.setText(f'PoS: {data.pos}')
+        self._pos.setVisible(data.pos is not None)
+        self.set_translation_language(self.lang)
         self._stack.setCurrentWidget(self._content)
 
     def set_note_added(self, state):
