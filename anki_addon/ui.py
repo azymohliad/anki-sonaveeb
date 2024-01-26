@@ -104,6 +104,15 @@ class SonaveebNoteDialog(QWidget):
 
         self._sonaveeb = sonaveeb or Sonaveeb()
 
+        # Restore config
+        self._config = mw.addonManager.getConfig(__name__)
+        if deck := self._config.get('deck'):
+            self._deck_selector.setCurrentText(deck)
+        if lang := self._config.get('language'):
+            index = self._lang_selector.findData(lang)
+            if index >= 0:
+                self._lang_selector.setCurrentIndex(index)
+
     def lang_code(self):
         return self._lang_selector.currentData()
 
@@ -153,11 +162,15 @@ class SonaveebNoteDialog(QWidget):
         lang = self.lang_code()
         for word_panel in self.search_results():
             word_panel.set_translation_language(lang)
+        self._config['language'] = lang
+        mw.addonManager.writeConfig(__name__, self._config)
 
     def deck_changed(self, _index):
         deck_id = self.deck_id()
         for word_panel in self.search_results():
             word_panel.set_deck(deck_id)
+        self._config['deck'] = self._deck_selector.currentText()
+        mw.addonManager.writeConfig(__name__, self._config)
 
     def search_results_received(self, result):
         homonyms, alt_forms = result
