@@ -289,8 +289,8 @@ class WordInfoPanel(QGroupBox):
         self._add_button.setDisabled(state)
 
     def check_note_added(self):
-        # TODO: Add deck to search string
-        existing_notes = mw.col.find_notes(f'URL:"{self.word_info.url}"')
+        deck = mw.col.decks.get(self.deck_id)['name']
+        existing_notes = mw.col.find_notes(f'URL:"{self.word_info.url}" deck:"{deck}"')
         self.set_note_added(len(existing_notes) != 0)
 
     def request_word_info(self):
