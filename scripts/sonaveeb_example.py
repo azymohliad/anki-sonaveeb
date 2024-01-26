@@ -4,7 +4,7 @@ import os
 import sys
 import argparse
 
-ADDON_PATH = os.path.join(os.path.dirname(__file__), 'anki_addon')
+ADDON_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'anki_addon')
 sys.path.append(ADDON_PATH)
 
 import sonaveeb
