@@ -2,12 +2,14 @@ from aqt.qt import (
     pyqtSignal, Qt, QSizePolicy,
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QButtonGroup, QStackedWidget, QComboBox, QGroupBox, QScrollArea,
+    QMessageBox,
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
 from aqt import mw, colors
 
 from .sonaveeb import Sonaveeb
+from .note_type import find_note_type, verify_note_type, add_note_type
 
 
 class SonaveebNoteDialog(QWidget):
@@ -175,6 +177,7 @@ class WordInfoPanel(QGroupBox):
         self.lang = lang
         self.search_info = search_info
         self.word_info = None
+        self._note_type_id = None
         self._sonaveeb = sonaveeb
         # Add status label
         self._status = QLabel()
@@ -197,7 +200,7 @@ class WordInfoPanel(QGroupBox):
         self._add_button = QPushButton()
         self._add_button.setEnabled(False)
         self._add_button.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
-        self._add_button.clicked.connect(self.add_clicked)
+        self._add_button.clicked.connect(self.add_button_clicked)
         buttons_layout = QVBoxLayout()
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         buttons_layout.addWidget(self._add_button)
@@ -226,6 +229,7 @@ class WordInfoPanel(QGroupBox):
             return None
         fallback = ['Translation unavailable']
         translations = self.word_info.lexemes[0].translations.get(self.lang, fallback)
+        translations = [t.replace('!', '') for t in translations]
         translations = ', '.join(translations[:3])
         return translations
 
@@ -257,7 +261,7 @@ class WordInfoPanel(QGroupBox):
 
     def check_note_added(self):
         # TODO: Add deck to search string
-        existing_notes = mw.col.find_notes(f'front:"{self.word_info.short_record()}"')
+        existing_notes = mw.col.find_notes(f'URL:"{self.word_info.url}"')
         self.set_note_added(len(existing_notes) != 0)
 
     def request_word_info(self):
@@ -273,6 +277,30 @@ class WordInfoPanel(QGroupBox):
         print(error)
         self.set_status('Error :(')
 
+    def get_note_type_id(self):
+        if self._note_type_id is not None:
+            return self._note_type_id
+
+        if (ntid := find_note_type()) is not None:
+            if verify_note_type(ntid):
+                self._note_type_id = ntid
+                return ntid
+            else:
+                QMessageBox.warning(self, 'Malformed note type')
+
+        self._note_type_id = add_note_type()
+        return self._note_type_id
+
+    def add_note(self):
+        if (ntid := self.get_note_type_id()) is not None:
+            note = mw.col.new_note(ntid)
+            note['Morphology'] = self.word_info.short_record()
+            note['Translation'] = self.translation()
+            note['URL'] = self.word_info.url
+            note.add_tag(self.word_info.pos)
+            mw.col.add_note(note, self.deck_id)
+            self.set_note_added(True)
+
     def word_info_received(self, word_info):
         if word_info is None:
             self._add_button.setEnabled(False)
@@ -281,14 +309,8 @@ class WordInfoPanel(QGroupBox):
             self.set_word_info(word_info)
             self.check_note_added()
 
-    def add_clicked(self):
-        node_type = mw.col.models.id_for_name('Basic (and reversed card)')
-        note = mw.col.new_note(node_type)
-        note['Front'] = self.word_info.short_record()
-        note['Back'] = self.translation()
-        note.add_tag(self.word_info.pos)
-        mw.col.add_note(note, self.deck_id)
-        self.set_note_added(True)
+    def add_button_clicked(self):
+        self.add_note()
 
 
 class SelectorRow(QWidget):
