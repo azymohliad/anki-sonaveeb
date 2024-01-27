@@ -14,7 +14,6 @@ DETAILS_URL = 'https://sonaveeb.ee/worddetails/unif/{word_id}'
 
 class Sonaveeb:
     def __init__(self):
-        print('Initializing Sonaveeb')
         self.session = requests.Session()
         # Obtain session cookies (wl_sess)
         # Without it other requests won't work

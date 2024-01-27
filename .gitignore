@@ -1,6 +1,4 @@
 __pycache__
 .venv
 debug
-anki_addon/bs4
-anki_addon/requests
 anki_addon/meta.json

@@ -12,11 +12,11 @@ from .sonaveeb import Sonaveeb
 from .note_type import find_note_type, verify_note_type, add_note_type
 
 
-class SonaveebNoteDialog(QWidget):
+class SonaveebDialog(QWidget):
     def __init__(self, sonaveeb=None, parent=None):
         super().__init__(parent=parent)
         self.setWindowFlag(Qt.WindowType.Window)
-        self.setWindowTitle('Add Sõnaveeb Notes')
+        self.setWindowTitle('Sõnaveeb Deck Builder')
         self.resize(600, 600)
 
         # Add header bar
@@ -92,12 +92,20 @@ class SonaveebNoteDialog(QWidget):
         self._content_stack.addWidget(self._status)
         self._content_stack.setCurrentWidget(self._status)
 
+        report_link = QLabel('See any mistakes or other problems? Please report <a href="https://github.com/azymohliad/anki-sonaveeb/issues">here</a>')
+        report_link.setTextFormat(Qt.TextFormat.RichText)
+        report_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        report_link.setOpenExternalLinks(True)
+        report_link.setStyleSheet(f'font-size: 9pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
+        report_link.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
         layout = QVBoxLayout()
         layout.addWidget(header_bar)
         layout.addWidget(search_bar)
         layout.addWidget(self._content_stack)
+        layout.addWidget(report_link)
         layout.setAlignment(search_bar, Qt.AlignmentFlag.AlignHCenter)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 5)
         self.setLayout(layout)
         self._search.setFocus()
         self.set_status('Search something :)')
