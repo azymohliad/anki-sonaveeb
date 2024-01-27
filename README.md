@@ -13,7 +13,7 @@ Download it [here](https://apps.ankiweb.net/#download) for your computer.
 
 ### 2. Install Sõnaveeb  addon
 
-TODO
+From Anki main menu select "Tools -> Add-ons -> Get Add-ons...", paste code `1005526508`, and press "OK". Then restart Anki.
 
 
 ## Usage
