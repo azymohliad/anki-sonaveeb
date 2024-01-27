@@ -12,6 +12,10 @@ Dictionary data is provided by [Sõnaveeb](https://sonaveeb.ee/).
 
 [Anki](https://apps.ankiweb.net/) is flexible and powerful platform for intelligent spaced learning. It allows to create and study custom flashcard decks. Applications are available on all popular desktop and mobile platforms. And it is free and open source. Optionally you can [create Anki Web account](https://ankiweb.net/account/signup), sign in from your Anki apps, and it will seemlesly synchronize your decks and study progress accross your devices.
 
+### About Sõnaveeb
+
+[Sõnaveeb](https://sonaveeb.ee/) (WordWeb) is the language portal of the [Institute of the Estonian Language (EKI)](https://www.eki.ee/EN/) containing lexical information from a growing number of dictionaries and databases.
+
 
 ## Installation
 
