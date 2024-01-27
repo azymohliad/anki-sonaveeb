@@ -335,9 +335,10 @@ class WordInfoPanel(QGroupBox):
         if (ntid := self.get_note_type_id()) is not None:
             note = mw.col.new_note(ntid)
             note['Morphology'] = self.word_info.short_record()
-            note['Translation'] = self.translation()
+            note['Translation'] = self.translation() or '-'
             note['URL'] = self.word_info.url
-            note.add_tag(self.word_info.pos)
+            if self.word_info.pos is not None:
+                note.add_tag(self.word_info.pos)
             mw.col.add_note(note, self.deck_id)
             self.set_note_added(True)
 
