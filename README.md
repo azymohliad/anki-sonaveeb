@@ -1,6 +1,6 @@
 # Anki Sõnaveeb Integration
 
-[Anki] addon for automating the creation of estonian vocabulary flash cards.
+An [Anki](https://apps.ankiweb.net/) addon for automating Estonian vocabulary flashcards creation.
 
 Simply input an Estonian word in any conjugational form, and generate a flashcard containing its principal forms along with a translation into your preferred language in one click.
 
@@ -10,7 +10,7 @@ Dictionary data is provided by [Sõnaveeb](https://sonaveeb.ee/).
 
 ### About Anki
 
-[Anki](https://apps.ankiweb.net/) is flexible and powerful platform for intelligent spaced learning. It allows to create and study custom flash card decks. Applications are available on all popular desktop and mobile platforms. And it is free and open source. Optionally you can [create Anki Web account](https://ankiweb.net/account/signup), sign in from your Anki apps, and it will seemlesly synchronize your decks and study progress accross your devices.
+[Anki](https://apps.ankiweb.net/) is flexible and powerful platform for intelligent spaced learning. It allows to create and study custom flashcard decks. Applications are available on all popular desktop and mobile platforms. And it is free and open source. Optionally you can [create Anki Web account](https://ankiweb.net/account/signup), sign in from your Anki apps, and it will seemlesly synchronize your decks and study progress accross your devices.
 
 
 ## Installation
