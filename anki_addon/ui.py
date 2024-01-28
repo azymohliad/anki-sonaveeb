@@ -228,12 +228,16 @@ class WordInfoPanel(QGroupBox):
         self._morphology_label = QLabel()
         self._pos_label = QLabel()
         self._translations_label = QLabel()
+        self._google_translated_marker = QLabel('Google Translated')
+        self._google_translated_marker.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self._google_translated_marker.hide()
         data_layout = QVBoxLayout()
         data_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         data_layout.addWidget(self._title_label)
         data_layout.addWidget(self._morphology_label)
         data_layout.addWidget(self._pos_label)
         data_layout.addWidget(self._translations_label)
+        data_layout.addWidget(self._google_translated_marker)
         self._add_button = QPushButton()
         self._add_button.setEnabled(False)
         self._add_button.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
@@ -268,6 +272,7 @@ class WordInfoPanel(QGroupBox):
         self.translations = ', '.join(filtered)
         self._translations_label.setText(self.translations)
         self._translations_label.setStyleSheet('')
+        self._google_translated_marker.setVisible(external)
 
     def set_translation_language(self, lang):
         self.lang = lang
