@@ -1,3 +1,4 @@
+import anki.lang
 from aqt.qt import (
     pyqtSignal, Qt, QSizePolicy,
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -28,10 +29,8 @@ class SonaveebDialog(QWidget):
         self._deck_selector.currentIndexChanged.connect(self.deck_changed)
         # - Add language selector
         languages = {
-            'uk': 'Українська',
-            'ru': 'Русский',
-            'en': 'English',
-            'fr': 'Française',
+            code.split('_')[0]: name.split(' ')[0]
+            for name, code in anki.lang.langs
         }
         self._lang_selector = QComboBox()
         for code, lang in languages.items():
@@ -117,10 +116,11 @@ class SonaveebDialog(QWidget):
         self._config = mw.addonManager.getConfig(__name__)
         if deck := self._config.get('deck'):
             self._deck_selector.setCurrentText(deck)
-        if lang := self._config.get('language'):
-            index = self._lang_selector.findData(lang)
-            if index >= 0:
-                self._lang_selector.setCurrentIndex(index)
+        default_lang = anki.lang.get_def_lang()[1].split('_')[0]
+        lang = self._config.get('language', default_lang)
+        index = self._lang_selector.findData(lang)
+        if index >= 0:
+            self._lang_selector.setCurrentIndex(index)
 
     def lang_code(self):
         return self._lang_selector.currentData()
