@@ -32,5 +32,6 @@ def cross_translate(sources, lang, threshold=None):
         translations += [t.strip() for t in translation.lower().split(',')]
     threshold = threshold or len(sources)
     counted = Counter(translations)
-    filtered = [k for k, v in counted.items() if v >= threshold]
+    ordered = sorted(counted.items(), key=lambda x: x[1], reverse=True)
+    filtered = [k for k, v in ordered if v >= threshold]
     return filtered

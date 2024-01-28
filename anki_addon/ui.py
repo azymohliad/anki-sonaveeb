@@ -352,7 +352,11 @@ class WordInfoPanel(QGroupBox):
         self._translations_label.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
         operation = QueryOp(
             parent=self,
-            op=lambda col: cross_translate(self.word_info.lexemes[0].translations, self.lang),
+            op=lambda col: cross_translate(
+                sources=self.word_info.lexemes[0].translations,
+                lang=self.lang,
+                threshold=1
+            ),
             success=self.translations_received
         ).failure(self.handle_translations_request_error)
         operation.run_in_background()
@@ -380,6 +384,9 @@ class WordInfoPanel(QGroupBox):
             self._translations_label.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
         else:
             self._add_button.setEnabled(True)
+            # As a special case, add "to" before verbs infinitives in English
+            if self.lang == 'en' and self.word_info.pos == 'tegusõna':
+                translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
             self.set_translations(translations, True)
 
     def add_button_clicked(self):
