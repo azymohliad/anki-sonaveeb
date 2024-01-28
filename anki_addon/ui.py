@@ -354,8 +354,7 @@ class WordInfoPanel(QGroupBox):
             parent=self,
             op=lambda col: cross_translate(
                 sources=self.word_info.lexemes[0].translations,
-                lang=self.lang,
-                threshold=1
+                lang=self.lang
             ),
             success=self.translations_received
         ).failure(self.handle_translations_request_error)
