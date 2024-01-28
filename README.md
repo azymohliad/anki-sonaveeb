@@ -6,7 +6,7 @@ An [Anki](https://apps.ankiweb.net/) addon for automating Estonian vocabulary fl
 
 Simply input an Estonian word in any conjugational form, and generate a flashcard containing its principal forms along with a translation into your preferred language in one click.
 
-Dictionary data is provided by [Sõnaveeb](https://sonaveeb.ee/).
+Dictionary data is provided by [Sõnaveeb](https://sonaveeb.ee/), with fallback to [Google Translate](https://translate.google.com) for missing translations.
 
 ![screenshot](https://github.com/azymohliad/anki-sonaveeb/assets/4020369/fd3ed32b-ff72-4e45-a204-e68fc1161591)
 
@@ -39,15 +39,3 @@ For more information about general Anki usage please refer to [Anki documentatio
 ## Sõnaveeb Copyrights
 
 The dictionary data is provided by Sõnaveeb and is a subject to [its copyrights](https://sonaveeb.ee/about#autor).
-
-
-## Potentially Planned Features
-
-- [ ] Automatic external translation (e.g. Google Translate) when Sõnaveeb translation to selected language is missing
-- [ ] Use user system language as default for word translation
-- [ ] UI translation
-- [ ] Add clickable synonyms to search results
-- [ ] Add extra user-defined tags
-- [ ] Audio pronunciation
-
-Also, feel free to share your ideas and feature requests in [issues](https://github.com/azymohliad/anki-sonaveeb/issues).
