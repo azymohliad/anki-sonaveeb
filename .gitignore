@@ -2,4 +2,4 @@ __pycache__
 .venv
 debug
 anki_addon/meta.json
-sonaveeb_integration.ankiaddon
+sonaveeb_integration*.ankiaddon
