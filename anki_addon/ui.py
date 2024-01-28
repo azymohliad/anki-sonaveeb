@@ -228,16 +228,17 @@ class WordInfoPanel(QGroupBox):
         self._morphology_label = QLabel()
         self._pos_label = QLabel()
         self._translations_label = QLabel()
-        self._google_translated_marker = QLabel('Google Translated')
-        self._google_translated_marker.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
-        self._google_translated_marker.hide()
+        self._translations_label.hide()
+        self._translations_status = QLabel()
+        self._translations_status.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self._translations_status.hide()
         data_layout = QVBoxLayout()
         data_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         data_layout.addWidget(self._title_label)
         data_layout.addWidget(self._morphology_label)
         data_layout.addWidget(self._pos_label)
         data_layout.addWidget(self._translations_label)
-        data_layout.addWidget(self._google_translated_marker)
+        data_layout.addWidget(self._translations_status)
         self._add_button = QPushButton()
         self._add_button.setEnabled(False)
         self._add_button.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Maximum)
@@ -271,8 +272,9 @@ class WordInfoPanel(QGroupBox):
         filtered = [t.strip('!., ') for t in translations[:limit]]
         self.translations = ', '.join(filtered)
         self._translations_label.setText(self.translations)
-        self._translations_label.setStyleSheet('')
-        self._google_translated_marker.setVisible(external)
+        self._translations_label.show()
+        self._translations_status.setText('Google Translated')
+        self._translations_status.setVisible(external)
 
     def set_translation_language(self, lang):
         self.lang = lang
@@ -305,7 +307,7 @@ class WordInfoPanel(QGroupBox):
 
     def set_note_added(self, state):
         self._add_button.setText('Note added' if state else 'Add note')
-        self._add_button.setDisabled(state)
+        self._add_button.setEnabled(not state and self.translations is not None)
 
     def check_note_added(self):
         deck = mw.col.decks.get(self.deck_id)['name']
@@ -348,8 +350,8 @@ class WordInfoPanel(QGroupBox):
 
     def request_cross_translations(self):
         self._add_button.setEnabled(False)
-        self._translations_label.setText('Google translating...')
-        self._translations_label.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self._translations_status.setText('Google translating...')
+        self._translations_status.show()
         operation = QueryOp(
             parent=self,
             op=lambda col: cross_translate(
@@ -366,7 +368,8 @@ class WordInfoPanel(QGroupBox):
 
     def handle_translations_request_error(self, error):
         print(error)
-        self._translations_label.setText('Failed to translate :(')
+        self._translations_status.setText('Failed to translate :(')
+        self._translations_status.show()
 
     def word_info_received(self, word_info):
         if word_info is None:
@@ -379,8 +382,8 @@ class WordInfoPanel(QGroupBox):
     def translations_received(self, translations):
         if len(translations) == 0:
             self._add_button.setEnabled(False)
-            self._translations_label.setText('Translations unavailable')
-            self._translations_label.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+            self._translations_status.setText('Translations unavailable')
+            self._translations_status.show()
         else:
             self._add_button.setEnabled(True)
             # As a special case, add "to" before verbs infinitives in English
