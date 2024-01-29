@@ -8,7 +8,7 @@ Simply input an Estonian word in any conjugational form, and generate a flashcar
 
 Dictionary data is provided by [Sõnaveeb](https://sonaveeb.ee/), with fallback to [Google Translate](https://translate.google.com) for missing translations.
 
-![screenshot](https://github.com/azymohliad/anki-sonaveeb/assets/4020369/fd3ed32b-ff72-4e45-a204-e68fc1161591)
+![screenshot](https://github.com/azymohliad/anki-sonaveeb/assets/4020369/7d7d4fdc-f6a1-4891-814e-58903cbf08c0)
 
 ### About Anki
 
