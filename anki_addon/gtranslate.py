@@ -21,7 +21,7 @@ def translate(text, target_lang='en', source_lang='et', debug=False):
     return result
 
 
-def cross_translate(sources, lang, threshold=None):
+def cross_translate(sources, lang):
     translations = []
     for source_lang, words in sources.items():
         text = ', '.join(words)
@@ -30,8 +30,8 @@ def cross_translate(sources, lang, threshold=None):
             target_lang=lang,
             source_lang=source_lang)
         translations += [t.strip() for t in translation.lower().split(',')]
-    threshold = threshold or len(sources)
     counted = Counter(translations)
+    threshold = min(len(sources), max(counted.values()))
     ordered = sorted(counted.items(), key=lambda x: x[1], reverse=True)
     filtered = [k for k, v in ordered if v >= threshold]
     return filtered
