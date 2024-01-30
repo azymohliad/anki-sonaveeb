@@ -7,7 +7,7 @@ from aqt.qt import (
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
-from aqt import mw, colors
+from aqt import mw, colors, gui_hooks
 
 from .sonaveeb import Sonaveeb
 from .note_type import find_note_type, verify_note_type, add_note_type
@@ -48,9 +48,9 @@ class SonaveebDialog(QWidget):
         header_layout.addWidget(QLabel('Translate into:'))
         header_layout.addWidget(self._lang_selector)
         header_layout.setContentsMargins(10, 5, 10, 5)
-        header_bar = QWidget()
-        header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
-        header_bar.setLayout(header_layout)
+        self._header_bar = QWidget()
+        self._header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
+        self._header_bar.setLayout(header_layout)
 
         # Add search bar
         self._search = QLineEdit()
@@ -103,7 +103,7 @@ class SonaveebDialog(QWidget):
         report_link.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         layout = QVBoxLayout()
-        layout.addWidget(header_bar)
+        layout.addWidget(self._header_bar)
         layout.addWidget(search_bar)
         layout.addWidget(self._content_stack)
         layout.addWidget(report_link)
@@ -113,6 +113,7 @@ class SonaveebDialog(QWidget):
         self._search.setFocus()
         self.set_status('Search something :)')
 
+        gui_hooks.theme_did_change.append(self.theme_changed)
         self._sonaveeb = sonaveeb or Sonaveeb()
 
         # Restore config
@@ -164,6 +165,9 @@ class SonaveebDialog(QWidget):
             self.request_search(query)
         else:
             self.set_status('Search something :)')
+
+    def theme_changed(self):
+        self._header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
 
     def form_selected(self, form):
         print(f'Selected form: {form}')
