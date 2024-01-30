@@ -258,7 +258,6 @@ class WordInfoPanel(QGroupBox):
         buttons_layout = QVBoxLayout()
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         buttons_layout.addWidget(self._add_button)
-        buttons_layout.setContentsMargins(10,0,10,0)
         content_layout = QHBoxLayout()
         content_layout.addLayout(data_layout)
         content_layout.addLayout(buttons_layout)
