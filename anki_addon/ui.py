@@ -278,6 +278,7 @@ class WordInfoPanel(QGroupBox):
 
     def set_translation_language(self, lang):
         self.lang = lang
+        self._translations_label.hide()
         if self.word_info is None:
             return
         translations = self.word_info.lexemes[0].translations.get(self.lang)
