@@ -155,7 +155,7 @@ class SonaveebDialog(QWidget):
             parent=self,
             op=lambda col: self._sonaveeb.get_candidates(query),
             success=self.search_results_received
-        )
+        ).failure(self.handle_search_error)
         operation.run_in_background()
 
     def search_triggered(self):
@@ -209,6 +209,11 @@ class SonaveebDialog(QWidget):
             for homonym in homonyms:
                 word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.lang_code())
                 self._search_results_layout.addWidget(word_panel)
+
+    def handle_search_error(self, error):
+        print(error)
+        self.set_status('Search failed :(')
+        self._search_button.setEnabled(True)
 
 
 

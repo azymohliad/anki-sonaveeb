@@ -15,9 +15,6 @@ DETAILS_URL = 'https://sonaveeb.ee/worddetails/unif/{word_id}'
 class Sonaveeb:
     def __init__(self):
         self.session = requests.Session()
-        # Obtain session cookies (wl_sess)
-        # Without it other requests won't work
-        self._request(BASE_URL)
 
     def _request(self, *args, **kwargs):
         resp = self.session.get(*args, **kwargs)
@@ -25,11 +22,17 @@ class Sonaveeb:
             raise RuntimeError(f'Request failed: {resp.status_code}')
         return resp
 
+    def _ensure_session(self):
+        if 'ww-sess' not in self.session.cookies:
+            self._request(BASE_URL)
+
     def _word_lookup_dom(self, word):
+        self._ensure_session()
         resp = self._request(SEARCH_URL.format(word=word))
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
     def _word_details_dom(self, word_id):
+        self._ensure_session()
         resp = self._request(DETAILS_URL.format(word_id=word_id))
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
