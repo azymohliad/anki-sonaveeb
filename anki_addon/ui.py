@@ -32,6 +32,9 @@ class SonaveebDialog(QWidget):
             code.split('_')[0]: name.split(' ')[0]
             for name, code in anki.lang.langs
         }
+        # - Fix language name typos
+        languages['uk'] = 'Українська'
+        languages['jbo'] = 'Lojban'
         self._lang_selector = QComboBox()
         for code, lang in languages.items():
             self._lang_selector.addItem(lang, userData=code)
