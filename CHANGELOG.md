@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added "Delete" and "Replace" note buttons.
+- Fix profile switch.
 
 
 ## v0.3.0 - 2024-01-30

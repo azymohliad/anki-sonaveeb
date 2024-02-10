@@ -1,4 +1,4 @@
-from aqt import mw
+from aqt import mw, gui_hooks
 from aqt.utils import qconnect
 from aqt.qt import QAction
 
@@ -12,8 +12,14 @@ def open_sonaveeb_dialog():
         win = SonaveebDialog(sonaveeb)
     win.show()
 
+def destroy_sonaveeb_dialog():
+    global win
+    win = None
+
 win = None
 sonaveeb = Sonaveeb()
 action = QAction("Sõnaveeb Deck Builder", mw)
 qconnect(action.triggered, open_sonaveeb_dialog)
 mw.form.menuTools.addAction(action)
+
+gui_hooks.profile_will_close.append(destroy_sonaveeb_dialog)
