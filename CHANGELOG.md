@@ -3,8 +3,9 @@
 ## Unreleased
 
 - Added "Delete" and "Replace" note buttons.
-- Fix profile switch.
-
+- Added a mechanism for updating card templates.
+- Updated card templates: moved Sõnaveeb link to a separate button to make words more readable.
+- Fixed profile switch handling.
 
 ## v0.3.0 - 2024-01-30
 

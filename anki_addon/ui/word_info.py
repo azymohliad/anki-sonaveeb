@@ -8,7 +8,7 @@ from aqt.operations import QueryOp
 from aqt.theme import theme_manager
 from aqt import mw, colors
 
-from ..note_type import find_note_type, verify_note_type, add_note_type
+from .. import note_type as nt
 from ..gtranslate import cross_translate
 
 
@@ -22,7 +22,7 @@ class WordInfoPanel(QGroupBox):
         self.word_info = None
         self.translations = None
         self.note = None
-        self._note_type_id = None
+        self._note_type = None
         self._sonaveeb = sonaveeb
         # Add status label
         self._status_label = QLabel()
@@ -153,28 +153,24 @@ class WordInfoPanel(QGroupBox):
             )
             self._replace_button.setVisible(not identical)
 
-    def get_note_type_id(self):
-        if self._note_type_id is not None:
-            return self._note_type_id
-
-        if (ntid := find_note_type()) is not None:
-            if verify_note_type(ntid):
-                self._note_type_id = ntid
-                return ntid
+    def get_note_type(self):
+        if self._note_type is None:
+            if (ntype := nt.find_user_note_type()) is not None:
+                nt.validate_note_type(ntype)
+                self._note_type = ntype['id']
+            elif (ntype := nt.find_default_note_type()) is not None:
+                nt.validate_note_type(ntype)
+                self._note_type = ntype['id']
             else:
-                QMessageBox.warning(self, 'Malformed note type',
-                    f'Note type "{mw.col.models.get(ntid)["name"]}" is malformed.'
-                    ' You can try to remove it from "Tools -> Manage Note Types"')
-
-        self._note_type_id = add_note_type()
-        return self._note_type_id
+                self._note_type = nt.add_default_note_type()
+        return self._note_type
 
     def add_note(self):
-        if (ntid := self.get_note_type_id()) is not None:
-            note = mw.col.new_note(ntid)
-            self.fill_note(note)
-            mw.col.add_note(note, self.deck_id)
-            self.note = note
+        ntype = self.get_note_type()
+        note = mw.col.new_note(ntype)
+        self.fill_note(note)
+        mw.col.add_note(note, self.deck_id)
+        self.note = note
 
     def update_note(self):
         if self.note is not None:
@@ -243,9 +239,17 @@ class WordInfoPanel(QGroupBox):
         self.set_translations(translations, True)
 
     def add_button_clicked(self):
-        self.add_note()
-        self._add_button.hide()
-        self._delete_button.show()
+        try:
+            self.add_note()
+        except nt.NoteTypeError as exc:
+            QMessageBox.warning(self, 'Malformed note type',
+                f'Note type "{exc.note_type["name"]}" is malformed. You can'
+                ' remove or rename it from "Tools -> Manage Note Types", and'
+                ' the default one will be recreated automatically'
+            )
+        else:
+            self._add_button.hide()
+            self._delete_button.show()
 
     def delete_button_clicked(self):
         try:
