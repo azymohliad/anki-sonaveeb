@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.0 - 2024-02-10
 
 - Added "Delete" and "Replace" note buttons.
 - Added a mechanism for updating card templates.
