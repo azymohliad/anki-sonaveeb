@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.0 - 2024-03-05
+
+- Update Sõnaveeb scrapper, fix search from conjugated forms.
+
 ## v0.4.0 - 2024-02-10
 
 - Added "Delete" and "Replace" note buttons.

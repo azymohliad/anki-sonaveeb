@@ -150,10 +150,18 @@ class SonaveebDialog(QWidget):
         self.set_status('Searching...')
         operation = QueryOp(
             parent=self,
-            op=lambda col: self._sonaveeb.get_candidates(query),
+            op=lambda col: self.search_candidates(query),
             success=self.search_results_received
         ).failure(self.handle_search_error)
         operation.run_in_background()
+
+    def search_candidates(self, query):
+        match, forms = self._sonaveeb.get_forms(query)
+        if match is not None:
+            candidates = self._sonaveeb.get_candidates(match)
+        else:
+            candidates = []
+        return candidates, forms
 
     def search_triggered(self):
         self.clear_search_results()
@@ -186,24 +194,24 @@ class SonaveebDialog(QWidget):
         mw.addonManager.writeConfig(__name__, self._config)
 
     def search_results_received(self, result):
-        homonyms, alt_forms = result
+        candidates, forms = result
         self._search_button.setEnabled(True)
-        if len(homonyms) == 0:
-            if len(alt_forms) == 0:
+        if len(candidates) == 0:
+            if len(forms) == 0:
                 self.set_status('Not found :(')
-            elif len(alt_forms) == 1:
-                self.request_search(alt_forms[0])
+            elif len(forms) == 1:
+                self.request_search(forms[0])
             else:
                 self._form_selector.set_label('Select base form:')
-                self._form_selector.set_options(alt_forms)
+                self._form_selector.set_options(forms)
                 self._form_selector.show()
                 self._content_stack.setCurrentWidget(self._content)
         else:
-            self._form_selector.set_options(alt_forms)
+            self._form_selector.set_options(forms)
             self._form_selector.set_label('See also:')
-            self._form_selector.setVisible(len(alt_forms) > 0)
+            self._form_selector.setVisible(len(forms) > 0)
             self._content_stack.setCurrentWidget(self._content)
-            for homonym in homonyms:
+            for homonym in candidates:
                 word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.lang_code())
                 self._search_results_layout.addWidget(word_panel)
 

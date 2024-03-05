@@ -8,6 +8,7 @@ import bs4
 
 
 BASE_URL = 'https://sonaveeb.ee'
+FORMS_URL =  'https://sonaveeb.ee/searchwordfrag/unif/{word}'
 SEARCH_URL = 'https://sonaveeb.ee/search/unif/dlall/dsall/{word}'
 DETAILS_URL = 'https://sonaveeb.ee/worddetails/unif/{word_id}'
 
@@ -57,9 +58,7 @@ class Sonaveeb:
         # Filter by language
         if lang is not None:
             homonyms = [r for r in homonyms if r.lang == lang]
-        # Parse forms
-        alt_forms = [b['data-word'] for b in dom.find_all('button', class_='word-form')]
-        return homonyms, alt_forms
+        return homonyms
 
     def _parse_word_info(self, dom):
         info = WordInfo()
@@ -89,17 +88,23 @@ class Sonaveeb:
                 info.morphology.append(entry)
         return info
 
+    def get_forms(self, word):
+        self._ensure_session()
+        resp = self._request(FORMS_URL.format(word=word))
+        data = resp.json()
+        forms = data['formWords']
+        match = word if word in data['prefWords'] else None
+        return match, forms
+
     def get_candidates(self, word, lang='et', debug=False):
         # Request word lookup page
         dom = self._word_lookup_dom(word)
-
         # Save HTML page for debugging
         if debug:
             open(os.path.join('debug', f'lookup_{word}.html'), 'w').write(dom.prettify())
-
         # Parse results
-        homonyms, alt_forms = self._parse_search_results(dom, lang='et')
-        return homonyms, alt_forms
+        homonyms = self._parse_search_results(dom, lang=lang)
+        return homonyms
 
     def get_word_info_by_candidate(self, candidate, debug=False):
         # Request word details page
@@ -116,13 +121,14 @@ class Sonaveeb:
         return word_info
 
     def get_word_info(self, word, lang='et', debug=False):
-        homonyms, forms = self.get_candidates(word, lang, debug)
-        if len(homonyms) == 0 and len(forms) > 0:
-            homonyms, forms = self.get_candidates(forms[0], lang, debug)
-        if len(homonyms) > 0:
-            return self.get_word_info_by_candidate(homonyms[0], debug)
-        else:
+        match, forms = self.get_forms(word)
+        if match is None and len(forms) == 0:
             return None
+        word = forms[0] if match is None else match
+        homonyms = self.get_candidates(word, lang, debug)
+        if len(homonyms) == 0:
+            return None
+        return self.get_word_info_by_candidate(homonyms[0], debug)
 
 
 @dc.dataclass
