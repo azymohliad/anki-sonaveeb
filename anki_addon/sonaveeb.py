@@ -84,7 +84,8 @@ class Sonaveeb:
         if morphology_paradigm := dom.find(class_='morphology-paradigm'):
             motphology_table = morphology_paradigm.find('table')
             for row in motphology_table.find_all('tr'):
-                entry = tuple((_remove_eki_tags(c.span) for c in row.find_all('td') if c.span))
+                cells = row.find_all('span', class_='form-value-field')
+                entry = tuple([_remove_eki_tags(c) for c in cells])
                 info.morphology.append(entry)
         return info
 
@@ -165,6 +166,7 @@ class WordInfo:
             'url': self.url,
             'pos': self.pos,
             'definition': self.lexemes[0].definition,
+            'short_record': self.short_record(),
             'morphology': self.morphology,
             'translations': self.lexemes[0].translations.get(lang)
         }
@@ -172,12 +174,12 @@ class WordInfo:
         return result
 
     def short_record(self):
-        forms = [form[0] for form in self.morphology]
+        forms = [form[0] for form in self.morphology if len(form) > 0]
         if len(forms) > 2:
             p1 = os.path.commonprefix([forms[0], forms[1]])
             p2 = os.path.commonprefix([forms[0], forms[1]])
             prefix = p1 if len(p1) > len(p2) else p2
-            if len(prefix) > 3:
+            if len(prefix) > 3 or prefix == forms[0]:
                 if forms[0] == prefix:
                     short = forms[0]
                 else:

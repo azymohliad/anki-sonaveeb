@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fixed error when parsing morphology for some words (e.g. pidama)
+- Fixed incorrectly parsed morphology for some words (e.g. meie)
+- Improved short-record algorithm for short words ("öö, öö, ööd" -> "öö, -, -d"; "isa, isa, isa" -> "isa, -, -")
+
 ## v0.5.0 - 2024-03-05
 
 - Update Sõnaveeb scrapper, fix search from conjugated forms.
