@@ -36,6 +36,23 @@ From Anki main menu select "Tools -> Sõnaveeb Deck Builder". On the toolbar, se
 
 For more information about general Anki usage please refer to [Anki documentation](https://docs.ankiweb.net/).
 
+## Development
+
+To test the addon during development you can symlink or copy its directory directly into Anki's addon folder.
+
+1. Disable upstream version of this addon if installed: "Tools -> Add-ons -> Sonaveeb Integration -> Toggle Enabled"
+2. Locate Anki addon folder (`addons21`): "Tools -> Add-ons -> View Files".
+3. Symlink or copy `anki_addon` directory from the repository into the located folder (under a more descriptive name for convenience).
+For example, on Linux (replace the destination with the correct path):
+
+```
+ln -s ${PWD}/anki_addon /path/to/Anki2/addons21/sonaveeb
+```
+
+4. Restart Anki. `sonaveeb` should appear in the list of add-ons.
+
+See also: [Writing Anki Add-ons](https://addon-docs.ankiweb.net/) tutorial book.
+
 ## Sõnaveeb Copyrights
 
 The dictionary data is provided by Sõnaveeb and is a subject to [its copyrights](https://sonaveeb.ee/about#autor).
