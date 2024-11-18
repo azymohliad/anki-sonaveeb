@@ -16,7 +16,7 @@ class SonaveebDialog(QWidget):
         super().__init__(parent=parent)
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Sõnaveeb Deck Builder')
-        self.resize(600, 600)
+        self.resize(600, 800)
 
         # Add header bar
         # - Add deck selector
@@ -24,6 +24,8 @@ class SonaveebDialog(QWidget):
         for deck in mw.col.decks.all_names_and_ids():
             self._deck_selector.addItem(deck.name, userData=deck.id)
         self._deck_selector.currentIndexChanged.connect(self.deck_changed)
+        self._deck_selector.setMinimumWidth(300)
+        self._deck_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         # - Add language selector
         languages = {
             code.split('_')[0]: name.split(' ')[0]
@@ -48,6 +50,24 @@ class SonaveebDialog(QWidget):
         self._header_bar = QWidget()
         self._header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
         self._header_bar.setLayout(header_layout)
+
+        self._dict_selector = QComboBox()
+        for dict_key in Sonaveeb.DICTIONARY_TYPES:
+            display_name = Sonaveeb.DICTIONARY_TYPES[dict_key].name
+            self._dict_selector.addItem(display_name, userData=dict_key)
+        self._dict_selector.currentIndexChanged.connect(self.dictionary_changed)
+        self._dict_selector.setMinimumWidth(100)
+        self._dict_selector.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+        # Add tooltips explaining the differences
+        self._dict_selector.setToolTip(
+            "lite: Dictionary for language learners\n"
+            "unif: Comprehensive dictionary with detailed information"
+        )
+
+        # Add to header layout
+        header_layout.addWidget(QLabel('Dictionary:'))
+        header_layout.addWidget(self._dict_selector)
 
         # Add search bar
         self._search = QLineEdit()
@@ -119,15 +139,26 @@ class SonaveebDialog(QWidget):
             self._deck_selector.setCurrentText(deck)
         default_lang = anki.lang.get_def_lang()[1].split('_')[0]
         lang = self._config.get('language', default_lang)
-        index = self._lang_selector.findData(lang)
-        if index >= 0:
-            self._lang_selector.setCurrentIndex(index)
+        index_lang = self._lang_selector.findData(lang)
+        if index_lang >= 0:
+            self._lang_selector.setCurrentIndex(index_lang)
+
+        # Initialize dictionary type from config
+        default_dict_type = Sonaveeb.DEFAULT_DICTIONARY
+        dict_type = self._config.get('dictionary', default_dict_type)
+        index_dict = self._dict_selector.findData(dict_type)
+        if index_dict >= 0:
+            self._dict_selector.setCurrentIndex(index_dict)
+            self._sonaveeb.select_dictionary(dict_type)
 
     def lang_code(self):
         return self._lang_selector.currentData()
 
     def deck_id(self):
         return self._deck_selector.currentData()
+
+    def dict_type(self):
+        return self._dict_selector.currentData()
 
     def search_results(self):
         return [
@@ -185,6 +216,14 @@ class SonaveebDialog(QWidget):
             word_panel.set_translation_language(lang)
         self._config['language'] = lang
         mw.addonManager.writeConfig(__name__, self._config)
+
+    def dictionary_changed(self, _index):
+        dict_type = self.dict_type()
+        self._sonaveeb.select_dictionary(dict_type)
+        self._config['dictionary'] = dict_type
+        mw.addonManager.writeConfig(__name__, self._config)
+        if self._search.text().strip():
+            self.search_triggered()
 
     def deck_changed(self, _index):
         deck_id = self.deck_id()

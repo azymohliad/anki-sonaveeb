@@ -8,14 +8,43 @@ import bs4
 
 
 BASE_URL = 'https://sonaveeb.ee'
-FORMS_URL =  'https://sonaveeb.ee/searchwordfrag/unif/{word}'
-SEARCH_URL = 'https://sonaveeb.ee/search/unif/dlall/dsall/{word}'
-DETAILS_URL = 'https://sonaveeb.ee/worddetails/unif/{word_id}'
 
+@dc.dataclass
+class Dictionary:
+    name: str
+    description: str
+    url_forms: str
+    url_search: str
+    url_details: str
 
 class Sonaveeb:
+    DICTIONARY_TYPES: tp.Dict[str, Dictionary] = {
+        'lite': Dictionary(
+            name='lite',
+            description='Dictionary for language learners',
+            url_forms='https://sonaveeb.ee/searchwordfrag/lite/{word}',
+            url_search='https://sonaveeb.ee/search/lite/dlall/{word}',
+            url_details='https://sonaveeb.ee/worddetails/lite/{word_id}'
+        ),
+        'unif': Dictionary(
+            name='unif',
+            description='Comprehensive dictionary with detailed information',
+            url_forms='https://sonaveeb.ee/searchwordfrag/unif/{word}',
+            url_search='https://sonaveeb.ee/search/unif/dlall/dsall/{word}',
+            url_details='https://sonaveeb.ee/worddetails/unif/{word_id}'
+        )
+    }
+    DEFAULT_DICTIONARY: str = 'unif'
+
     def __init__(self):
         self.session = requests.Session()
+        self.select_dictionary(self.DEFAULT_DICTIONARY)
+
+    def select_dictionary(self, dict_type: str) -> None:
+        try:
+            self.dictionary = self.DICTIONARY_TYPES[dict_type]
+        except KeyError:
+            self.dictionary = self.DICTIONARY_TYPES[self.DEFAULT_DICTIONARY]
 
     def _request(self, *args, **kwargs):
         resp = self.session.get(*args, **kwargs)
@@ -29,12 +58,14 @@ class Sonaveeb:
 
     def _word_lookup_dom(self, word):
         self._ensure_session()
-        resp = self._request(SEARCH_URL.format(word=word))
+        url = self.dictionary.url_search.format(word=word)
+        resp = self._request(url)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
     def _word_details_dom(self, word_id):
         self._ensure_session()
-        resp = self._request(DETAILS_URL.format(word_id=word_id))
+        url = self.dictionary.url_details.format(word_id=word_id)
+        resp = self._request(url)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
     def _parse_search_results(self, dom, lang=None):
@@ -60,38 +91,135 @@ class Sonaveeb:
             homonyms = [r for r in homonyms if r.lang == lang]
         return homonyms
 
+    def _parse_lexeme_definition(self, definition_row):
+        '''Extract definition and language level from a definition row'''
+        definition = None
+        level = None
+
+        if not definition_row:
+            return definition, level
+
+        # Extract language level if present
+        for meta_span in definition_row.find_all(class_='additional-meta'):
+            if meta_span.get('title') == 'Keeleoskustase':
+                level = meta_span.string.strip()
+                break
+
+        # Extract definitions
+        definitions = []
+        for def_entry in definition_row.find_all(id=re.compile('^definition-entry')):
+            if def_text := _remove_eki_tags(def_entry.span):
+                definitions.append(def_text.strip())
+
+        if definitions:
+            definition = ' '.join(definitions)
+
+        return definition, level
+
+    def _parse_lexeme_translations(self, translation_panels):
+        '''Extract translations from translation panels'''
+        translations = {}
+        for panel in translation_panels:
+            if lang_code := panel.find(class_='lang-code'):
+                lang = lang_code.string
+                values = [
+                    _remove_eki_tags(a.span.span)
+                    for a in panel.find_all('a', class_='matching-word')
+                ]
+                if values:
+                    translations[lang] = values
+        return translations
+
+    def _parse_lexeme_examples(self, match, max_examples=3):
+        '''Extract example sentences, limiting to max_examples'''
+        examples = []
+        for example in match.find_all(class_='example-text-value', limit=max_examples):
+            if example.string:
+                examples.append(example.string)
+        return examples
+
+    def _get_lexeme_number(self, match, fallback_number):
+        '''Get lexeme number from match or use fallback'''
+        if lexeme_number := match.find(class_='lexeme-level'):
+            return lexeme_number.string
+        return str(fallback_number)
+
     def _parse_word_info(self, dom):
         info = WordInfo()
-        info.word = dom.find(class_='homonym-name').span.string
-        if pos := dom.find(class_='content-title').find(class_='tag'):
-            info.pos = pos.string
+
+        # Get the word_id from the url
+        if word_id_input := dom.find('input', id='selected-word-homonym-nr'):
+            info.word_id = word_id_input['value']
+
+        # Get basic word info
+        if homonym_name := dom.find(class_='homonym-name'):
+            info.word = homonym_name.span.string
+
+        if pos_tag := dom.find(class_='content-title').find(class_='tag'):
+            info.pos = pos_tag.string
+
+        # Initialize lexemes list
         info.lexemes = []
-        for match in dom.find_all(id=re.compile('^lexeme-section')):
-            lexeme = Lexeme()
-            if definition := match.find(id=re.compile('^definition-entry')):
-                lexeme.definition = _remove_eki_tags(definition.span)
-            lexeme.tags = [t.string for t in match.find_all(class_='tag')]
-            lexeme.synonyms = [a.span.span.string for a in match.find_all('a', class_='synonym')]
-            lexeme.translations = {}
-            for translation in match.find_all(id=re.compile('^matches-show-more-panel')):
-                lang = translation.find(class_='lang-code').string
-                values = [_remove_eki_tags(a.span.span) for a in translation.find_all('a', class_='matching-word')]
-                lexeme.translations[lang] = values
-            lexeme.examples = [s.string for s in match.find_all(class_='example-text-value')]
+
+        # Find specific word-details div for this homonym
+        dom_to_parse = dom
+        if info.word_id:
+            if word_details := dom.find('div', attrs={'data-homonymnr': info.word_id}):
+                dom_to_parse = word_details
+
+        # Parse each lexeme section
+        sequential_number = 1
+        for match in dom_to_parse.find_all(id=re.compile('^lexeme-section')):
+            # Get lexeme number
+            number = self._get_lexeme_number(match, sequential_number)
+            sequential_number += 1
+
+            # Skip sub-definitions
+            if number and '.' in number:
+                continue
+
+            # Parse lexeme details
+            definition, level = self._parse_lexeme_definition(match.find(class_='definition-row'))
+            translations = self._parse_lexeme_translations(
+                match.find_all(id=re.compile('^matches-show-more-panel'))
+            )
+            examples = self._parse_lexeme_examples(match)
+            tags = [t.string for t in match.find_all(class_='tag') if t.string]
+            synonyms = [
+                a.span.span.string
+                for a in match.find_all('a', class_='synonym')
+                if a.span and a.span.span
+            ]
+
+            # Create lexeme object
+            lexeme = Lexeme(
+                definition=definition,
+                synonyms=synonyms,
+                translations=translations,
+                examples=examples,
+                tags=tags,
+                number=number,
+                level=level,
+            )
+
             info.lexemes.append(lexeme)
 
+        # Parse morphology
         info.morphology = []
-        if morphology_paradigm := dom.find(class_='morphology-paradigm'):
-            motphology_table = morphology_paradigm.find('table')
-            for row in motphology_table.find_all('tr'):
-                cells = row.find_all('span', class_='form-value-field')
-                entry = tuple([_remove_eki_tags(c) for c in cells])
-                info.morphology.append(entry)
+        if morphology_paradigm := dom_to_parse.find(class_='morphology-paradigm'):
+            if morphology_table := morphology_paradigm.find('table'):
+                for row in morphology_table.find_all('tr'):
+                    cells = row.find_all('span', class_='form-value-field')
+                    if cells:
+                        entry = tuple(_remove_eki_tags(c) for c in cells)
+                        info.morphology.append(entry)
+
         return info
 
     def get_forms(self, word):
         self._ensure_session()
-        resp = self._request(FORMS_URL.format(word=word))
+        url = self.dictionary.url_forms.format(word=word)
+        resp = self._request(url)
         data = resp.json()
         forms = data['formWords']
         match = word if word in data['prefWords'] else None
@@ -146,15 +274,17 @@ class SearchCandidate:
 class Lexeme:
     definition: str = None
     synonyms: tp.List[str] = None
-    translations: tp.Dict[str, tp.List[str]] = None
+    translations: tp.Dict[str, tp.List[str]] = dc.field(default_factory=dict)
     examples: tp.List[str] = None
     tags: tp.List[str] = None
+    number: str = None
+    level: str = None
 
 
 @dc.dataclass
 class WordInfo:
-    word: str = None
     word_id: int = None
+    word: str = None
     url: str = None
     pos: str = None
     lexemes: tp.List[Lexeme] = None
@@ -162,13 +292,13 @@ class WordInfo:
 
     def summary(self, lang=None):
         data = {
+            'word_id': self.word_id,
             'word': self.word,
             'url': self.url,
             'pos': self.pos,
-            'definition': self.lexemes[0].definition,
             'short_record': self.short_record(),
             'morphology': self.morphology,
-            'translations': self.lexemes[0].translations.get(lang)
+            'lexemes': self.lexemes,
         }
         result = '\n'.join([f'{k}: {v}' for k, v in data.items() if v is not None])
         return result
@@ -196,9 +326,15 @@ class WordInfo:
 
 
 def _remove_eki_tags(element):
-    result = ''.join([el.text for el in element.contents])
+    if not element:
+        return ''
+
+    result = ''.join(el.text for el in element.contents if el)
+
+    # Clean up common tags
     eki_tags = ['eki-stress', 'eki-form']
     for tag in eki_tags:
         result = result.replace(f'<{tag}>', '')
         result = result.replace(f'</{tag}>', '')
-    return result
+
+    return result.strip()
