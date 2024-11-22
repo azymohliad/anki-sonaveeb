@@ -350,11 +350,15 @@ class WordInfoPanel(QGroupBox):
                 widget.translations_status.show()
 
     def word_info_received(self, word_info):
-        if word_info is None:
-            self.set_status('Failed to obtain word info :(')
-        else:
-            self.set_word_info(word_info)
-            self.check_note_exists()
+        try:
+            if word_info is None:
+                self.set_status('Failed to obtain word info :(')
+            else:
+                self.set_word_info(word_info)
+                self.check_note_exists()
+        except RuntimeError:
+            # Panel was deleted, ignore
+            pass
 
     def translations_received(self, result):
         '''Handle received translations for a specific lexeme'''
