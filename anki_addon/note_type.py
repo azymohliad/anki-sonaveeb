@@ -8,6 +8,7 @@ MODEL_FIELDS = [
     'Word ID',
     'Morphology',
     'Definition',
+    'Rection',
     'Translation',
     'Examples',
     'URL',
@@ -17,6 +18,7 @@ TEMPLATE_FORWARD_NAME = 'Translate from Estonian'
 TEMPLATE_FORWARD_FRONT = '''\
 <div class="tags">{{Tags}}</div>
 {{Morphology}}
+<div class="rection">{{Rection}}</div>
 {{#Examples}}
 <div class="examples">
     <h4>Näited:</h4>
@@ -51,6 +53,7 @@ TEMPLATE_REVERSE_BACK = '''\
 <hr id=answer>
 
 {{Morphology}}
+<div class="rection">{{Rection}}</div>
 
 <div class="definition">{{Definition}}</div>
 
@@ -83,6 +86,14 @@ STYLE = '''\
     color: #666;
     margin: 10px 0;
     font-size: 18px;
+}
+
+.rection {
+    text-align: center;
+    font-style: italic;
+    color: #555;
+    margin: 10px 0;
+    font-size: 16px;
 }
 
 .definition {
