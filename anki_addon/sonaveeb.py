@@ -8,6 +8,8 @@ import bs4
 
 
 BASE_URL = 'https://sonaveeb.ee'
+VALID_LANGUAGE_LEVELS: tp.ClassVar = {'A1', 'A2', 'B1', 'B2', 'C1', 'C2'}
+
 
 @dc.dataclass
 class Dictionary:
@@ -16,6 +18,7 @@ class Dictionary:
     url_forms: str
     url_search: str
     url_details: str
+
 
 class Sonaveeb:
     DICTIONARY_TYPES: tp.Dict[str, Dictionary] = {
@@ -104,6 +107,8 @@ class Sonaveeb:
             if meta_span.get('title') == 'Keeleoskustase':
                 level = meta_span.string.strip()
                 break
+        if level not in VALID_LANGUAGE_LEVELS:
+            level = None
 
         # Extract definitions
         definitions = []
@@ -130,10 +135,10 @@ class Sonaveeb:
                     translations[lang] = values
         return translations
 
-    def _parse_lexeme_examples(self, match, max_examples=3):
-        '''Extract example sentences, limiting to max_examples'''
+    def _parse_lexeme_examples(self, match):
+        '''Extract example sentences'''
         examples = []
-        for example in match.find_all(class_='example-text-value', limit=max_examples):
+        for example in match.find_all(class_='example-text-value'):
             if example.string:
                 examples.append(example.string)
         return examples
@@ -155,8 +160,8 @@ class Sonaveeb:
         if homonym_name := dom.find(class_='homonym-name'):
             info.word = homonym_name.span.string
 
-        if pos_tag := dom.find(class_='content-title').find(class_='tag'):
-            info.pos = pos_tag.string
+        if word_class_tag := dom.find(class_='content-title').find(class_='tag'):
+            info.word_class = word_class_tag.string
 
         # Initialize lexemes list
         info.lexemes = []
@@ -285,8 +290,8 @@ class Lexeme:
 class WordInfo:
     word_id: int = None
     word: str = None
+    word_class: str = None
     url: str = None
-    pos: str = None
     lexemes: tp.List[Lexeme] = None
     morphology: tp.List[tp.Tuple[str]] = None
 
@@ -294,8 +299,8 @@ class WordInfo:
         data = {
             'word_id': self.word_id,
             'word': self.word,
+            'word_class': self.word_class,
             'url': self.url,
-            'pos': self.pos,
             'short_record': self.short_record(),
             'morphology': self.morphology,
             'lexemes': self.lexemes,
