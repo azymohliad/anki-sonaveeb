@@ -269,10 +269,14 @@ class WordInfoPanel(QGroupBox):
         self.set_status('Error :(')
 
     def _on_word_info_received(self, word_info):
-        if word_info is None:
-            self.set_status('Failed to obtain word info :(')
-        else:
-            self.set_word_info(word_info)
+        try:
+            if word_info is None:
+                self.set_status('Failed to obtain word info :(')
+            else:
+                self.set_word_info(word_info)
+        except RuntimeError:
+            # Panel was deleted, ignore
+            pass
 
     def _on_add_button_clicked(self):
         try:
