@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Save HTML page before parsing for debugging')
     args = parser.parse_args()
 
-    result = gtranslate.translate_text(
+    result = gtranslate.translate(
         text=args.text,
         target_lang=args.target_lang,
         source_lang=args.source_lang,
