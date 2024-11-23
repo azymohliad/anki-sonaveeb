@@ -2,144 +2,209 @@
 Lexeme widget for displaying word definitions and examples
 '''
 
-from dataclasses import dataclass
-from typing import List, Optional, Callable
-from aqt.qt import QWidget, QVBoxLayout, QGroupBox, QLabel, QRadioButton, QButtonGroup, QSizePolicy
-from aqt.theme import theme_manager
+from typing import List, Optional
+from aqt.qt import (
+    Qt, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QRadioButton, QButtonGroup,
+    QSizePolicy, QFrame, pyqtSignal
+)
 from aqt import colors
+from aqt.theme import theme_manager
+from aqt.operations import QueryOp
 
-
-@dataclass
-class LexemeConfig:
-    '''Configuration for lexeme display'''
-    example_prefix: str = ""
+from ..sonaveeb import Lexeme
+from ..gtranslate import cross_translate
+from ..globals import REQUEST_TIMEOUT
 
 
 class LexemeWidget(QWidget):
     '''Widget for displaying a single lexeme's information'''
-    def __init__(self, index: int, lexeme: dict, parent: Optional[QWidget] = None):
+    translations_updated = pyqtSignal()
+    clicked = pyqtSignal()
+
+    def __init__(
+            self,
+            lexeme: Lexeme,
+            examples_limit: int = None,
+            translations_limit: int = None,
+            parent: Optional[QWidget] = None):
         super().__init__(parent)
+        self.lexeme = lexeme
+        self.examples_limit = examples_limit
+        self.translations_limit = translations_limit
+        self.translations = []
+        self.lang = None
+
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.layout = QVBoxLayout()
-
-        # Create radio button for selection
-        self.radio = QRadioButton(f"{index + 1}")
-        self.layout.addWidget(self.radio)
-
-        # Add definition if present
-        if lexeme.definition:
-            def_label = QLabel(lexeme.definition)
-            def_label.setWordWrap(True)
-            self.layout.addWidget(def_label)
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
         # Add translations display
+        translation_layout = QHBoxLayout()
         self.translations_label = QLabel()
         self.translations_label.setWordWrap(True)
         self.translations_label.hide()
+        translation_layout.addWidget(self.translations_label)
+        translation_layout.addStretch()
+        self.translation_status = QLabel()
+        self.translation_status.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self.translation_status.hide()
+        translation_layout.addWidget(self.translation_status)
+        self.layout.addLayout(translation_layout)
 
-        self.translations_status = QLabel()
-        self.translations_status.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
-        self.translations_status.hide()
-
-        self.layout.addWidget(self.translations_label)
-        self.layout.addWidget(self.translations_status)
-
-        # Add tags
-        tags_label = self._create_tags_label(lexeme)
-        self.layout.addWidget(tags_label)
+        # Add definition if present
+        if lexeme.definition:
+            definition_label = QLabel(f'**Definition:** *{lexeme.definition}*')
+            definition_label.setTextFormat(Qt.TextFormat.MarkdownText)
+            definition_label.setWordWrap(True)
+            self.layout.addWidget(definition_label)
 
         # Add examples
-        header, content = self._create_examples_labels(lexeme)
-        self.layout.addWidget(header)
-        if content:
-            self.layout.addWidget(content)
+        if lexeme.examples:
+            examples = '- ' + '\n- '.join(lexeme.examples[:examples_limit])
+            examples_label = QLabel(f'**Examples:**\n{examples}')
+            examples_label.setTextFormat(Qt.TextFormat.MarkdownText)
+            examples_label.setWordWrap(True)
+            self.layout.addWidget(examples_label)
 
+        # Add tags
+        if lexeme.tags:
+            tags = ', '.join(lexeme.tags)
+            tags_label = QLabel(f'**Tags:** {tags}')
+            tags_label.setTextFormat(Qt.TextFormat.MarkdownText)
+            self.layout.addWidget(tags_label)
         self.setLayout(self.layout)
 
-    def set_translations(self, translations: List[str], is_external: bool = False):
+    def set_translation_language(self, lang):
+        self.lang = lang
+        translations = self.lexeme.translations.get(lang, [])
+        if translations:
+            # Process and set translations for this lexeme, limiting to specified amount
+            self.set_translations(translations)
+            self.set_translation_status(None)
+        elif len(self.lexeme.translations) == 0:
+            # No translations available for this lexeme
+            self.set_translations(None)
+            self.set_translation_status('No translations available')
+        else:
+            # Request translations from external source
+            self.set_translation_status('Google translating...')
+            self.request_cross_translations()
+        return bool(translations)
+
+    def set_translations(self, translations: List[str]):
         '''Update the translations display'''
-        if translations and len(translations) > 0:
-            self.translations_label.setText(', '.join(translations))
-            self.translations_label.show()
-            self.translations_status.setText('Google Translated' if is_external else '')
-            self.translations_status.setVisible(is_external)
-        else:
-            self.translations_label.hide()
-            self.translations_status.setText('Translations unavailable')
-            self.translations_status.show()
+        translations = translations or []
+        self.translations = [t.strip('!., ') for t in translations[:self.translations_limit]]
+        self.translations_label.setText(', '.join(self.translations))
+        self.translations_label.setVisible(bool(translations))
+        self.translations_updated.emit()
 
-    def _create_tags_label(self, lexeme: dict) -> QLabel:
-        '''Create a label for lexeme tags'''
-        if self._has_valid_tags(lexeme):
-            valid_tags = [tag for tag in lexeme.tags if tag is not None]
-            label_text = "Tags: " + ", ".join(valid_tags)
-        else:
-            label_text = "Tags: None"
+    def set_translation_status(self, status):
+        '''Set translation status text'''
+        self.translation_status.setText(str(status))
+        self.translation_status.setVisible(bool(status))
 
-        label = QLabel(label_text)
-        label.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
-        return label
+    def request_cross_translations(self):
+        '''Request translations for a specific lexeme'''
+        operation = QueryOp(
+            parent=self,
+            op=lambda col: cross_translate(
+                sources=self.lexeme.translations,
+                lang=self.lang,
+                timeout=REQUEST_TIMEOUT,
+            ),
+            success=self._on_translations_received
+        ).failure(self._on_translations_request_error)
+        operation.run_in_background()
 
-    def _has_valid_tags(self, lexeme: dict) -> bool:
-        '''Check if lexeme has any valid tags'''
-        return lexeme.tags and any(tag is not None for tag in lexeme.tags)
+    def _on_translations_request_error(self, error):
+        '''Handle translation request errors'''
+        self.set_translation_status('Failed to translate :(')
 
-    def _create_examples_labels(self, lexeme: dict) -> tuple[QLabel, Optional[QLabel]]:
-        '''Create labels for examples header and content'''
-        # Create header label
-        header = QLabel("Näited:")
-        header.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
-        header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+    def _on_translations_received(self, translations):
+        '''Handle received translations'''
+        # As a special case, add "to" before verbs infinitives in English
+        # TODO: Propagate word info?
+        # if self.lang == 'en' and self.word_info.word_class == 'tegusõna':
+        #     translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
+        self.set_translation_status('Google translated')
+        self.set_translations(translations)
 
-        # Check if lexeme has valid examples
-        if not hasattr(lexeme, 'examples') or not lexeme.examples:
-            header.setText("Näited: None")
-            return header, None
-
-        # Create content label with valid examples
-        valid_examples = [ex for ex in lexeme.examples if ex is not None]
-        if not valid_examples:
-            header.setText("Näited: None")
-            return header, None
-
-        content = QLabel("\n".join(f"{ex}" for ex in valid_examples))
-        content.setWordWrap(True)
-        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        return header, content
+    # Qt events
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        return super().mousePressEvent(event)
 
 class LexemesContainer(QWidget):
     '''Container widget for managing multiple lexeme widgets'''
-    def __init__(self, parent: Optional[QWidget] = None):
+    translations_updated = pyqtSignal(QWidget)
+    lexeme_selected = pyqtSignal()
+
+    def __init__(
+            self,
+            lexemes: List[Lexeme] = None,
+            lexemes_limit: int = None,
+            examples_limit: int = None,
+            translations_limit: int = None,
+            parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
-        self.config = LexemeConfig()
-        self.lexeme_widgets: List[LexemeWidget] = []
+        self.lexemes_limit = lexemes_limit
+        self.examples_limit = examples_limit
+        self.translations_limit = translations_limit
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.lexeme_widgets = []
         self.button_group = QButtonGroup(self)
+        self.button_group.idToggled.connect(self._on_button_toggled)
+        if lexemes:
+            self.set_data(lexemes)
 
-    def update(self, lexemes: List[dict], max_lexemes: int = 3) -> None:
+    def set_data(self, lexemes: List[Lexeme]):
         '''Update the lexeme display with new data'''
-        self._clear_layout()
-
-        for i, lexeme in enumerate(lexemes[:max_lexemes]):
-            lexeme_widget = LexemeWidget(i, lexeme, parent=self)
+        self.clear()
+        for i, lexeme in enumerate(lexemes[:self.lexemes_limit]):
+            item_layout = QHBoxLayout()
+            item_layout.setContentsMargins(0, 0, 0, 0)
+            radio_button = QRadioButton()
+            lexeme_widget = LexemeWidget(
+                lexeme=lexeme,
+                examples_limit=self.examples_limit,
+                translations_limit=self.translations_limit,
+                parent=self
+            )
+            lexeme_widget.translations_updated.connect(self._on_child_translations_updated)
+            lexeme_widget.clicked.connect(radio_button.click)
+            item_layout.addWidget(radio_button)
+            item_layout.addWidget(lexeme_widget)
+            self.button_group.addButton(radio_button, i)
+            self.layout.addWidget(HSeparator())
+            self.layout.addLayout(item_layout)
             self.lexeme_widgets.append(lexeme_widget)
-            self.layout.addWidget(lexeme_widget)
-            self.button_group.addButton(lexeme_widget.radio, i)
-
         # Select first lexeme by default if any exist
-        if self.lexeme_widgets:
-            self.lexeme_widgets[0].radio.setChecked(True)
+        if len(lexemes) > 0:
+            self.button_group.button(0).setChecked(True)
+        if len(lexemes) == 1:
+            radio_button.hide()
 
-    def get_widget(self, index: int) -> Optional[LexemeWidget]:
+    def set_translation_language(self, lang):
+        for widget in self.lexeme_widgets:
+            widget.set_translation_language(lang)
+
+    def get_widget(self, index: int) -> LexemeWidget:
         '''Get lexeme widget at specified index'''
-        if 0 <= index < len(self.lexeme_widgets):
-            return self.lexeme_widgets[index]
-        return None
+        return self.lexeme_widgets[index]
 
-    def _clear_layout(self) -> None:
-        '''Clear all widgets from layout'''
+    def get_selected_index(self) -> int:
+        '''Get the index of the selected lexeme'''
+        return self.button_group.checkedId()
+
+    def get_selected_widget(self) -> LexemeWidget:
+        '''Get the selected lexeme widget'''
+        index = self.button_group.checkedId()
+        return self.get_widget(index)
+
+    def clear(self):
+        '''Clear lexemes list'''
         self.lexeme_widgets.clear()
         for button in self.button_group.buttons():
             self.button_group.removeButton(button)
@@ -147,3 +212,18 @@ class LexemesContainer(QWidget):
             item = self.layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+    def _on_child_translations_updated(self):
+        widget = self.sender()
+        self.translations_updated.emit(widget)
+
+    def _on_button_toggled(self, index, checked):
+        if checked:
+            self.lexeme_selected.emit()
+
+
+class HSeparator(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.Shape.HLine)
+        self.setFrameShadow(QFrame.Shadow.Sunken)

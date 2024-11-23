@@ -3,6 +3,7 @@ from aqt.qt import QMessageBox
 
 from .. import note_type as nt
 
+
 POPUP_TITLE = 'Update Sõnaveeb Card Templates?'
 POPUP_TEXT = f'''\
 Card templates update for "{nt.MODEL_NAME_DEFAULT}" note type is available.
