@@ -8,11 +8,11 @@ from collections import Counter
 URL = 'https://translate.google.com/m?tl={target_lang}&sl={source_lang}&q={text}'
 
 
-def translate(text: str, target_lang: str = 'en', source_lang: str = 'et', debug: bool = False):
+def translate(text: str, target_lang: str = 'en', source_lang: str = 'et', timeout: float = None, debug: bool = False):
     '''Translate text with Google Translate.'''
     # GET request to google translate does not requrie authentication
     url = URL.format(target_lang=target_lang, source_lang=source_lang, text=text)
-    resp = requests.get(url)
+    resp = requests.get(url, timeout=timeout)
     if resp.status_code != 200:
         raise RuntimeError(f'Request failed: {resp.status_code}')
     dom = bs4.BeautifulSoup(resp.text, 'html.parser')
@@ -23,7 +23,7 @@ def translate(text: str, target_lang: str = 'en', source_lang: str = 'et', debug
     return result
 
 
-def cross_translate(sources: tp.Dict[str, tp.List[str]], lang):
+def cross_translate(sources: tp.Dict[str, tp.List[str]], lang: str, timeout: float = None):
     '''Find the most suitable common translations for multiple synonyms.
 
     Translate a list of synonyms from multiple source languages into a single target language,
@@ -39,7 +39,9 @@ def cross_translate(sources: tp.Dict[str, tp.List[str]], lang):
         translation = translate(
             text=text,
             target_lang=lang,
-            source_lang=source_lang)
+            source_lang=source_lang,
+            timeout=timeout
+        )
         translations += [t.strip() for t in translation.lower().split(',')]
     counted = Counter(translations)
     threshold = min(len(sources), max(counted.values()))

@@ -55,20 +55,20 @@ class Sonaveeb:
             raise RuntimeError(f'Request failed: {resp.status_code}')
         return resp
 
-    def _ensure_session(self):
+    def _ensure_session(self, timeout=None):
         if 'ww-sess' not in self.session.cookies:
             self._request(BASE_URL)
 
-    def _word_lookup_dom(self, word):
-        self._ensure_session()
+    def _word_lookup_dom(self, word, timeout=None):
+        self._ensure_session(timeout=timeout)
         url = self.dictionary.url_search.format(word=word)
-        resp = self._request(url)
+        resp = self._request(url, timeout=timeout)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
-    def _word_details_dom(self, word_id):
-        self._ensure_session()
+    def _word_details_dom(self, word_id, timeout=None):
+        self._ensure_session(timeout=timeout)
         url = self.dictionary.url_details.format(word_id=word_id)
-        resp = self._request(url)
+        resp = self._request(url, timeout=timeout)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
     def _parse_search_results(self, dom, lang=None):
@@ -221,18 +221,18 @@ class Sonaveeb:
 
         return info
 
-    def get_forms(self, word):
-        self._ensure_session()
+    def get_forms(self, word, timeout=None):
+        self._ensure_session(timeout=timeout)
         url = self.dictionary.url_forms.format(word=word)
-        resp = self._request(url)
+        resp = self._request(url, timeout=timeout)
         data = resp.json()
         forms = data['formWords']
         match = word if word in data['prefWords'] else None
         return match, forms
 
-    def get_candidates(self, word, lang='et', debug=False):
+    def get_candidates(self, word, lang='et', timeout=None, debug=False):
         # Request word lookup page
-        dom = self._word_lookup_dom(word)
+        dom = self._word_lookup_dom(word, timeout=None)
         # Save HTML page for debugging
         if debug:
             open(os.path.join('debug', f'lookup_{word}.html'), 'w').write(dom.prettify())
@@ -240,9 +240,9 @@ class Sonaveeb:
         homonyms = self._parse_search_results(dom, lang=lang)
         return homonyms
 
-    def get_word_info_by_candidate(self, candidate, debug=False):
+    def get_word_info_by_candidate(self, candidate, timeout=None, debug=False):
         # Request word details page
-        dom = self._word_details_dom(candidate.word_id)
+        dom = self._word_details_dom(candidate.word_id, timeout=timeout)
 
         # Save HTML page for debugging
         if debug:
@@ -254,15 +254,15 @@ class Sonaveeb:
         word_info.url = candidate.url
         return word_info
 
-    def get_word_info(self, word, lang='et', debug=False):
-        match, forms = self.get_forms(word)
+    def get_word_info(self, word, lang='et', timeout=None, debug=False):
+        match, forms = self.get_forms(word, timeout=timeout)
         if match is None and len(forms) == 0:
             return None
         word = forms[0] if match is None else match
-        homonyms = self.get_candidates(word, lang, debug)
+        homonyms = self.get_candidates(word, lang, timeout, debug)
         if len(homonyms) == 0:
             return None
-        return self.get_word_info_by_candidate(homonyms[0], debug)
+        return self.get_word_info_by_candidate(homonyms[0], timeout, debug)
 
 
 @dc.dataclass
