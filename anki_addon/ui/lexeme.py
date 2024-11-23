@@ -44,9 +44,10 @@ class LexemeWidget(QWidget):
         self.translations_label.setWordWrap(True)
         self.translations_label.hide()
         translation_layout.addWidget(self.translations_label)
-        translation_layout.addStretch()
+
         self.translation_status = QLabel()
         self.translation_status.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self.translation_status.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.translation_status.hide()
         translation_layout.addWidget(self.translation_status)
         self.layout.addLayout(translation_layout)
@@ -153,6 +154,7 @@ class LexemesContainer(QWidget):
         self.translations_limit = translations_limit
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(10)
         self.lexeme_widgets = []
         self.button_group = QButtonGroup(self)
         self.button_group.idToggled.connect(self._on_button_toggled)
@@ -226,4 +228,4 @@ class HSeparator(QFrame):
     def __init__(self):
         super().__init__()
         self.setFrameShape(QFrame.Shape.HLine)
-        self.setFrameShadow(QFrame.Shadow.Sunken)
+        self.setFrameShadow(QFrame.Shadow.Plain)
