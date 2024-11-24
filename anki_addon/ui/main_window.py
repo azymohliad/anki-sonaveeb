@@ -184,6 +184,7 @@ class SonaveebDialog(QWidget):
     def _request_search(self, query):
         self._search_button.setEnabled(False)
         self._dict_selector.setEnabled(False)
+        self._search.setEnabled(False)
         self.set_status('Searching...')
         operation = QueryOp(
             parent=self,
@@ -242,6 +243,8 @@ class SonaveebDialog(QWidget):
         candidates, forms = result
         self._search_button.setEnabled(True)
         self._dict_selector.setEnabled(True)
+        self._search.setEnabled(True)
+        self._search.setFocus()
         if len(candidates) == 0:
             if len(forms) == 0:
                 self.set_status('Not found :(')
@@ -267,6 +270,8 @@ class SonaveebDialog(QWidget):
         self.set_status('Search failed :(')
         self._search_button.setEnabled(True)
         self._dict_selector.setEnabled(True)
+        self._search.setEnabled(True)
+        self._search.setFocus()
 
     def _on_word_translation_requested(self, active):
         widget = self.sender()
