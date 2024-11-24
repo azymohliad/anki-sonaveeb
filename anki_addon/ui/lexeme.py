@@ -71,6 +71,12 @@ class LexemeWidget(QWidget):
             self.layout.addWidget(examples_label)
 
         # Add tags
+        if lexeme.level:
+            level_label = QLabel(f'**Level:** {lexeme.level}')
+            level_label.setTextFormat(Qt.TextFormat.MarkdownText)
+            self.layout.addWidget(level_label)
+
+        # Add tags
         if lexeme.tags:
             tags = ', '.join(lexeme.tags)
             tags_label = QLabel(f'**Tags:** {tags}')

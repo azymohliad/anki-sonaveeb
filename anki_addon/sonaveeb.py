@@ -103,12 +103,11 @@ class Sonaveeb:
             return definition, level
 
         # Extract language level if present
-        for meta_span in definition_row.find_all(class_='additional-meta'):
-            if meta_span.get('data-original-title') == 'Keeleoskustase':
-                level = meta_span.string.strip()
-                break
-        if level not in VALID_LANGUAGE_LEVELS:
-            level = None
+        if level := definition_row.find(class_='additional-meta', title='Keeleoskustase'):
+            level = level.string.strip()
+            # TODO: Is this check necessary? Are there words with invalid level value?
+            if level not in VALID_LANGUAGE_LEVELS:
+                level = None
 
         # Extract definitions
         definitions = []
