@@ -142,7 +142,7 @@ class WordInfoPanel(QGroupBox):
         self._morphology_label.setText(f'**Forms**: {data.short_record()}')
         self._class_label.setText(f'**Class**: {data.word_class}')
         self._class_label.setVisible(data.word_class is not None)
-        self._lexemes_container.set_data(data.lexemes)
+        self._lexemes_container.set_data(data.lexemes, data.word_class)
         self._stack.setCurrentWidget(self._content)
         # Request translations
         self.set_translation_language(self.lang)

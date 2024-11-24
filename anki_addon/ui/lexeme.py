@@ -25,11 +25,13 @@ class LexemeWidget(QWidget):
     def __init__(
             self,
             lexeme: Lexeme,
+            word_class: str,
             examples_limit: int = None,
             translations_limit: int = None,
             parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.lexeme = lexeme
+        self.word_class = word_class
         self.examples_limit = examples_limit
         self.translations_limit = translations_limit
         self.translations = []
@@ -128,9 +130,8 @@ class LexemeWidget(QWidget):
     def _on_translations_received(self, translations):
         '''Handle received translations'''
         # As a special case, add "to" before verbs infinitives in English
-        # TODO: Propagate word info?
-        # if self.lang == 'en' and self.word_info.word_class == 'tegusõna':
-        #     translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
+        if self.lang == 'en' and self.word_class == 'tegusõna':
+            translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
         self.translations_requested.emit(False)
         self.set_translation_status('Google translated')
         self.set_translations(translations)
@@ -169,7 +170,7 @@ class LexemesContainer(QWidget):
         if lexemes:
             self.set_data(lexemes)
 
-    def set_data(self, lexemes: List[Lexeme]):
+    def set_data(self, lexemes: List[Lexeme], word_class: str):
         '''Update the lexeme display with new data'''
         self.clear()
         for i, lexeme in enumerate(lexemes[:self.lexemes_limit]):
@@ -178,6 +179,7 @@ class LexemesContainer(QWidget):
             radio_button = QRadioButton()
             lexeme_widget = LexemeWidget(
                 lexeme=lexeme,
+                word_class=word_class,
                 examples_limit=self.examples_limit,
                 translations_limit=self.translations_limit,
                 parent=self
