@@ -116,6 +116,25 @@ class Sonaveeb:
 
         return definition, level
 
+    def _parse_lexeme_rection(self, match) -> tp.List[str]:
+        '''Extract rection patterns from a lexeme section.
+
+        Args:
+            match: Element containing the lexeme section
+
+        Returns:
+            List of rection patterns (e.g. ["keda/mida*", "kellel + mida teha"])
+        '''
+        rection_div = match.find(class_='rekts-est')
+        if not rection_div:
+            return []
+
+        rections = []
+        for span in rection_div.find_all('span', class_='tag'):
+            if span.string:
+                rections.append(span.string)
+        return rections
+
     def _parse_lexeme_translations(self, translation_panels):
         '''Extract translations from translation panels'''
         translations = {}
@@ -184,6 +203,7 @@ class Sonaveeb:
                 match.find_all(id=re.compile('^matches-show-more-panel'))
             )
             examples = self._parse_lexeme_examples(match)
+            rection = self._parse_lexeme_rection(match)
             tags = [t.string for t in match.find_all(class_='tag') if t.string]
             synonyms = [
                 a.span.span.string
@@ -194,6 +214,7 @@ class Sonaveeb:
             # Create lexeme object
             lexeme = Lexeme(
                 definition=definition,
+                rection=rection,
                 synonyms=synonyms,
                 translations=translations,
                 examples=examples,
@@ -273,6 +294,7 @@ class SearchCandidate:
 @dc.dataclass
 class Lexeme:
     definition: str = None
+    rection: tp.List[str] = None
     synonyms: tp.List[str] = None
     translations: tp.Dict[str, tp.List[str]] = dc.field(default_factory=dict)
     examples: tp.List[str] = None

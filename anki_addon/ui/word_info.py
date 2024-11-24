@@ -307,6 +307,9 @@ class WordInfoPanel(QGroupBox):
                 if examples:
                     note['Examples'] = '<br>'.join(f"{ex}" for ex in examples)
 
+            if lexeme.rection:
+                note['Rection'] = ', '.join(lexeme.rection)
+
             if lexeme.level and lexeme.level.upper() in VALID_LANGUAGE_LEVELS:
                 note.add_tag(lexeme.level.upper())
 
