@@ -179,6 +179,7 @@ class SonaveebDialog(QWidget):
         while self._search_results_layout.count():
             child = self._search_results_layout.takeAt(0)
             child.widget().deleteLater()
+        self._lang_selector.setEnabled(True)
 
     def _request_search(self, query):
         self._search_button.setEnabled(False)

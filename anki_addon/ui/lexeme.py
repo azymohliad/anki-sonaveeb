@@ -135,13 +135,17 @@ class LexemeWidget(QWidget):
 
     def _on_translations_received(self, translations):
         '''Handle received translations'''
+        # Test if this widget still exists
+        try:
+            self.isVisible()
+        except RuntimeError:
+            return
+        self.translations_requested.emit(False)
+        self.set_translation_status('Google translated')
         # As a special case, add "to" before verbs infinitives in English
         if self.lang == 'en' and self.word_class == 'tegusõna':
             translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
-        self.translations_requested.emit(False)
-        self.set_translation_status('Google translated')
         self.set_translations(translations)
-
 
     # Qt events
     def mousePressEvent(self, event):
