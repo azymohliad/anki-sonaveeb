@@ -1,8 +1,7 @@
 import anki.lang
 from aqt.qt import (
-    pyqtSignal, Qt, QSizePolicy,
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QButtonGroup, QStackedWidget, QComboBox, QScrollArea,
+    pyqtSignal, Qt, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
+    QPushButton, QButtonGroup, QStackedWidget, QComboBox, QScrollArea,
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
@@ -26,8 +25,8 @@ class SonaveebDialog(QWidget):
         for deck in mw.col.decks.all_names_and_ids():
             self._deck_selector.addItem(deck.name, userData=deck.id)
         self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
-        self._deck_selector.setMinimumWidth(300)
-        self._deck_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._deck_selector.setMinimumWidth(100)
+        self._deck_selector.setMaximumWidth(500)
         deck_label = QLabel('&Deck:')
         deck_label.setBuddy(self._deck_selector)
         # - Add language selector
@@ -42,7 +41,6 @@ class SonaveebDialog(QWidget):
         for code, lang in languages.items():
             self._lang_selector.addItem(lang, userData=code)
         self._lang_selector.currentIndexChanged.connect(self._on_language_changed)
-        self._lang_selector.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         lang_label = QLabel('&Translate into:')
         lang_label.setBuddy(self._lang_selector)
         # - Add dictionary selector
@@ -54,7 +52,6 @@ class SonaveebDialog(QWidget):
             self._dict_selector.addItem(dictionary.name, userData=key)
         self._dict_selector.currentIndexChanged.connect(self._on_dictionary_changed)
         self._dict_selector.setMinimumWidth(100)
-        self._dict_selector.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._dict_selector.setToolTip(dict_tooltip)
         dict_label = QLabel('Di&ctionary:')
         dict_label.setToolTip(dict_tooltip)
