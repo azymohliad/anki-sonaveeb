@@ -245,6 +245,7 @@ class WordInfoPanel(QGroupBox):
             'Translation': ', '.join(lexeme_widget.translations),
             'Definition': lexeme.definition or '',
             'Examples': '<br>'.join(lexeme.examples[:EXAMPLES_LIMIT]),
+            'Rection': ', '.join(lexeme.rection)
         }
         # Populate tags
         tags = []
