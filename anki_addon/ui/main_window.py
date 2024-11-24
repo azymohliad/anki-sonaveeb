@@ -28,6 +28,8 @@ class SonaveebDialog(QWidget):
         self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
         self._deck_selector.setMinimumWidth(300)
         self._deck_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        deck_label = QLabel('&Deck:')
+        deck_label.setBuddy(self._deck_selector)
         # - Add language selector
         languages = {
             code.split('_')[0]: name.split(' ')[0]
@@ -41,25 +43,30 @@ class SonaveebDialog(QWidget):
             self._lang_selector.addItem(lang, userData=code)
         self._lang_selector.currentIndexChanged.connect(self._on_language_changed)
         self._lang_selector.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        lang_label = QLabel('&Translate into:')
+        lang_label.setBuddy(self._lang_selector)
         # - Add dictionary selector
+        dict_tooltip = '\n'.join(
+            [f'{d.name}: {d.description}' for d in Sonaveeb.DICTIONARY_TYPES.values()]
+        )
         self._dict_selector = QComboBox()
-        for dict_key in Sonaveeb.DICTIONARY_TYPES:
-            display_name = Sonaveeb.DICTIONARY_TYPES[dict_key].name
-            self._dict_selector.addItem(display_name, userData=dict_key)
+        for key, dictionary in Sonaveeb.DICTIONARY_TYPES.items():
+            self._dict_selector.addItem(dictionary.name, userData=key)
         self._dict_selector.currentIndexChanged.connect(self._on_dictionary_changed)
         self._dict_selector.setMinimumWidth(100)
         self._dict_selector.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self._dict_selector.setToolTip('\n'.join(
-            [f'{d.name}: {d.description}' for d in Sonaveeb.DICTIONARY_TYPES.values()]
-        ))
+        self._dict_selector.setToolTip(dict_tooltip)
+        dict_label = QLabel('Di&ctionary:')
+        dict_label.setToolTip(dict_tooltip)
+        dict_label.setBuddy(self._dict_selector)
         # - Populate header bar
         header_layout = QHBoxLayout()
-        header_layout.addWidget(QLabel('Deck:'))
+        header_layout.addWidget(deck_label)
         header_layout.addWidget(self._deck_selector)
         header_layout.addStretch(1)
-        header_layout.addWidget(QLabel('Translate into:'))
+        header_layout.addWidget(lang_label)
         header_layout.addWidget(self._lang_selector)
-        header_layout.addWidget(QLabel('Dictionary:'))
+        header_layout.addWidget(dict_label)
         header_layout.addWidget(self._dict_selector)
         header_layout.setContentsMargins(10, 5, 10, 5)
         self._header_bar = QWidget()
@@ -148,6 +155,9 @@ class SonaveebDialog(QWidget):
             self._dict_selector.setCurrentIndex(index_dict)
             self._sonaveeb.select_dictionary(dict_type)
 
+        # Track Google translate requests in progress
+        self.pending_translation_requests = set()
+
     def language_code(self):
         return self._lang_selector.currentData()
 
@@ -175,6 +185,7 @@ class SonaveebDialog(QWidget):
 
     def _request_search(self, query):
         self._search_button.setEnabled(False)
+        self._dict_selector.setEnabled(False)
         self.set_status('Searching...')
         operation = QueryOp(
             parent=self,
@@ -232,6 +243,7 @@ class SonaveebDialog(QWidget):
     def _on_search_results_received(self, result):
         candidates, forms = result
         self._search_button.setEnabled(True)
+        self._dict_selector.setEnabled(True)
         if len(candidates) == 0:
             if len(forms) == 0:
                 self.set_status('Not found :(')
@@ -249,12 +261,27 @@ class SonaveebDialog(QWidget):
             self._content_stack.setCurrentWidget(self._content)
             for homonym in candidates:
                 word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.language_code())
+                word_panel.translations_requested.connect(self._on_word_translation_requested)
                 self._search_results_layout.addWidget(word_panel)
 
     def _on_search_error(self, error):
         print(error)
         self.set_status('Search failed :(')
         self._search_button.setEnabled(True)
+        self._dict_selector.setEnabled(True)
+
+    def _on_word_translation_requested(self, active):
+        widget = self.sender()
+        if active:
+            if not self.pending_translation_requests:
+                # The first translation request started
+                self._lang_selector.setEnabled(False)
+            self.pending_translation_requests.add(widget.word_info.word_id)
+        else:
+            self.pending_translation_requests.discard(widget.word_info.word_id)
+            if not self.pending_translation_requests:
+                # The last translation request finished
+                self._lang_selector.setEnabled(True)
 
 
 class SelectorRow(QWidget):

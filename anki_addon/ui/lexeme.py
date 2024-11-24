@@ -19,6 +19,7 @@ from ..globals import REQUEST_TIMEOUT
 class LexemeWidget(QWidget):
     '''Widget for displaying a single lexeme's information'''
     translations_updated = pyqtSignal()
+    translations_requested = pyqtSignal(bool)
     clicked = pyqtSignal()
 
     def __init__(
@@ -117,9 +118,11 @@ class LexemeWidget(QWidget):
             success=self._on_translations_received
         ).failure(self._on_translations_request_error)
         operation.run_in_background()
+        self.translations_requested.emit(True)
 
     def _on_translations_request_error(self, error):
         '''Handle translation request errors'''
+        self.translations_requested.emit(False)
         self.set_translation_status('Failed to translate :(')
 
     def _on_translations_received(self, translations):
@@ -128,17 +131,21 @@ class LexemeWidget(QWidget):
         # TODO: Propagate word info?
         # if self.lang == 'en' and self.word_info.word_class == 'tegusõna':
         #     translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
+        self.translations_requested.emit(False)
         self.set_translation_status('Google translated')
         self.set_translations(translations)
+
 
     # Qt events
     def mousePressEvent(self, event):
         self.clicked.emit()
         return super().mousePressEvent(event)
 
+
 class LexemesContainer(QWidget):
     '''Container widget for managing multiple lexeme widgets'''
     translations_updated = pyqtSignal(QWidget)
+    translations_requested = pyqtSignal(bool)
     lexeme_selected = pyqtSignal()
 
     def __init__(
@@ -158,6 +165,7 @@ class LexemesContainer(QWidget):
         self.lexeme_widgets = []
         self.button_group = QButtonGroup(self)
         self.button_group.idToggled.connect(self._on_button_toggled)
+        self.pending_translation_requests = set()
         if lexemes:
             self.set_data(lexemes)
 
@@ -175,6 +183,7 @@ class LexemesContainer(QWidget):
                 parent=self
             )
             lexeme_widget.translations_updated.connect(self._on_child_translations_updated)
+            lexeme_widget.translations_requested.connect(self._on_child_translations_requested)
             lexeme_widget.clicked.connect(radio_button.click)
             item_layout.addWidget(radio_button)
             item_layout.addWidget(lexeme_widget)
@@ -218,6 +227,19 @@ class LexemesContainer(QWidget):
     def _on_child_translations_updated(self):
         widget = self.sender()
         self.translations_updated.emit(widget)
+
+    def _on_child_translations_requested(self, active):
+        widget = self.sender()
+        if active:
+            if not self.pending_translation_requests:
+                # The first translation request started
+                self.translations_requested.emit(True)
+            self.pending_translation_requests.add(widget.lexeme.number)
+        else:
+            self.pending_translation_requests.discard(widget.lexeme.number)
+            if not self.pending_translation_requests:
+                # The last translation request finished
+                self.translations_requested.emit(False)
 
     def _on_button_toggled(self, index, checked):
         if checked:
