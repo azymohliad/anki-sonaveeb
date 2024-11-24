@@ -38,7 +38,7 @@ class LexemeWidget(QWidget):
         self.lang = None
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.layout = QVBoxLayout()
+        self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         # Add translations display
@@ -70,19 +70,18 @@ class LexemeWidget(QWidget):
             examples_label.setWordWrap(True)
             self.layout.addWidget(examples_label)
 
-        # Add tags
+        # Add rection
+        if lexeme.rection:
+            rection = ', '.join(lexeme.rection)
+            rection_label = QLabel(f'**Rection:** {rection}')
+            rection_label.setTextFormat(Qt.TextFormat.MarkdownText)
+            self.layout.addWidget(rection_label)
+
+        # Add language level
         if lexeme.level:
             level_label = QLabel(f'**Level:** {lexeme.level}')
             level_label.setTextFormat(Qt.TextFormat.MarkdownText)
             self.layout.addWidget(level_label)
-
-        # Add tags
-        if lexeme.tags:
-            tags = ', '.join(lexeme.tags)
-            tags_label = QLabel(f'**Tags:** {tags}')
-            tags_label.setTextFormat(Qt.TextFormat.MarkdownText)
-            self.layout.addWidget(tags_label)
-        self.setLayout(self.layout)
 
     def set_translation_language(self, lang):
         self.lang = lang

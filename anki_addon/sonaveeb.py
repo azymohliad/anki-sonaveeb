@@ -298,11 +298,11 @@ class SearchCandidate:
 @dc.dataclass
 class Lexeme:
     definition: str = None
-    rection: tp.List[str] = None
-    synonyms: tp.List[str] = None
+    rection: tp.List[str] = dc.field(default_factory=list)
+    synonyms: tp.List[str] = dc.field(default_factory=list)
     translations: tp.Dict[str, tp.List[str]] = dc.field(default_factory=dict)
-    examples: tp.List[str] = None
-    tags: tp.List[str] = None
+    examples: tp.List[str] = dc.field(default_factory=list)
+    tags: tp.List[str] = dc.field(default_factory=list)
     number: str = None
     level: str = None
 
