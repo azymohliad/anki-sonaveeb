@@ -23,31 +23,33 @@ class Dictionary:
 class Sonaveeb:
     DICTIONARY_TYPES: tp.Dict[str, Dictionary] = {
         'lite': Dictionary(
-            name='lite',
-            description='Dictionary for language learners, with simpler definitions and examples.',
+            name='Lite',
+            description=(
+                'Learner\'s Sõnaveeb - dictionary for language learners, '
+                'with simpler definitions and examples.'
+            ),
             url_forms='https://sonaveeb.ee/searchwordfrag/lite/{word}',
             url_search='https://sonaveeb.ee/search/lite/dlall/{word}',
             url_details='https://sonaveeb.ee/worddetails/lite/{word_id}'
         ),
         'unif': Dictionary(
-            name='unif',
-            description='Comprehensive dictionary with detailed information.',
+            name='Advanced',
+            description=(
+                'Full Sõnaveeb - comprehensive dictionary with detailed information.'
+            ),
             url_forms='https://sonaveeb.ee/searchwordfrag/unif/{word}',
             url_search='https://sonaveeb.ee/search/unif/dlall/dsall/{word}',
             url_details='https://sonaveeb.ee/worddetails/unif/{word_id}'
         )
     }
-    DEFAULT_DICTIONARY: str = 'unif'
+    DEFAULT_DICTIONARY = 'lite'
 
     def __init__(self):
         self.session = requests.Session()
         self.select_dictionary(self.DEFAULT_DICTIONARY)
 
     def select_dictionary(self, dict_type: str) -> None:
-        try:
-            self.dictionary = self.DICTIONARY_TYPES[dict_type]
-        except KeyError:
-            self.dictionary = self.DICTIONARY_TYPES[self.DEFAULT_DICTIONARY]
+        self.dictionary = self.DICTIONARY_TYPES[dict_type]
 
     def _request(self, *args, **kwargs):
         resp = self.session.get(*args, **kwargs)

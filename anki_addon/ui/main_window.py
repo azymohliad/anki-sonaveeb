@@ -17,7 +17,7 @@ class SonaveebDialog(QWidget):
         super().__init__(parent=parent)
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Sõnaveeb Deck Builder')
-        self.resize(600, 800)
+        self.resize(700, 800)
 
         # Add header bar
         # - Add deck selector
@@ -51,7 +51,6 @@ class SonaveebDialog(QWidget):
         for key, dictionary in Sonaveeb.DICTIONARY_TYPES.items():
             self._dict_selector.addItem(dictionary.name, userData=key)
         self._dict_selector.currentIndexChanged.connect(self._on_dictionary_changed)
-        self._dict_selector.setMinimumWidth(100)
         self._dict_selector.setToolTip(dict_tooltip)
         dict_label = QLabel('Di&ctionary:')
         dict_label.setToolTip(dict_tooltip)
@@ -267,7 +266,7 @@ class SonaveebDialog(QWidget):
 
     def _on_search_error(self, error):
         print(error)
-        self.set_status('Search failed :(')
+        self.set_status('Search failed :(\nPlease retry')
         self._search_button.setEnabled(True)
         self._dict_selector.setEnabled(True)
         self._search.setEnabled(True)
