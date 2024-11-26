@@ -1,31 +1,33 @@
 import anki.lang
 from aqt.qt import (
-    pyqtSignal, Qt, QSizePolicy,
-    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QButtonGroup, QStackedWidget, QComboBox, QScrollArea,
+    pyqtSignal, Qt, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
+    QPushButton, QButtonGroup, QStackedWidget, QComboBox, QScrollArea,
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
 from aqt import mw, colors, gui_hooks
 
-from ..sonaveeb import Sonaveeb
+from ..sonaveeb import Sonaveeb, SonaveebMode
+from ..globals import REQUEST_TIMEOUT
 from .word_info import WordInfoPanel
+
 
 class SonaveebDialog(QWidget):
     def __init__(self, sonaveeb=None, parent=None):
         super().__init__(parent=parent)
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Sõnaveeb Deck Builder')
-        self.resize(600, 800)
+        self.resize(700, 800)
 
         # Add header bar
         # - Add deck selector
         self._deck_selector = QComboBox()
         for deck in mw.col.decks.all_names_and_ids():
             self._deck_selector.addItem(deck.name, userData=deck.id)
-        self._deck_selector.currentIndexChanged.connect(self.deck_changed)
-        self._deck_selector.setMinimumWidth(300)
-        self._deck_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
+        self._deck_selector.setMinimumWidth(100)
+        deck_label = QLabel('&Deck:')
+        deck_label.setBuddy(self._deck_selector)
         # - Add language selector
         languages = {
             code.split('_')[0]: name.split(' ')[0]
@@ -37,44 +39,45 @@ class SonaveebDialog(QWidget):
         self._lang_selector = QComboBox()
         for code, lang in languages.items():
             self._lang_selector.addItem(lang, userData=code)
-        self._lang_selector.currentIndexChanged.connect(self.language_changed)
-        self._lang_selector.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        self._lang_selector.currentIndexChanged.connect(self._on_language_changed)
+        lang_label = QLabel('&Translate into:')
+        lang_label.setBuddy(self._lang_selector)
+        # - Add dictionary selector
+        mode_tooltip = (
+            'Sõnaveeb mode:\n'
+            f"- {SonaveebMode.Lite.name}: Learner's Sõnaveeb - dictionary for "
+            "language learners with simpler definitions and examples.\n"
+            f"- {SonaveebMode.Advanced.name}: Full Sõnaveeb - comprehensive "
+            "dictionary with detailed information."
+        )
+        self._mode_selector = QComboBox()
+        for mode in SonaveebMode:
+            self._mode_selector.addItem(mode.name, userData=mode)
+        self._mode_selector.currentIndexChanged.connect(self._on_mode_changed)
+        self._mode_selector.setToolTip(mode_tooltip)
+        mode_label = QLabel('Sõnaveeb &Mode:')
+        mode_label.setToolTip(mode_tooltip)
+        mode_label.setBuddy(self._mode_selector)
         # - Populate header bar
         header_layout = QHBoxLayout()
-        header_layout.addWidget(QLabel('Deck:'))
+        header_layout.addWidget(deck_label)
         header_layout.addWidget(self._deck_selector)
         header_layout.addStretch(1)
-        header_layout.addWidget(QLabel('Translate into:'))
+        header_layout.addWidget(lang_label)
         header_layout.addWidget(self._lang_selector)
+        header_layout.addWidget(mode_label)
+        header_layout.addWidget(self._mode_selector)
         header_layout.setContentsMargins(10, 5, 10, 5)
         self._header_bar = QWidget()
         self._header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
         self._header_bar.setLayout(header_layout)
 
-        self._dict_selector = QComboBox()
-        for dict_key in Sonaveeb.DICTIONARY_TYPES:
-            display_name = Sonaveeb.DICTIONARY_TYPES[dict_key].name
-            self._dict_selector.addItem(display_name, userData=dict_key)
-        self._dict_selector.currentIndexChanged.connect(self.dictionary_changed)
-        self._dict_selector.setMinimumWidth(100)
-        self._dict_selector.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-
-        # Add tooltips explaining the differences
-        self._dict_selector.setToolTip(
-            "lite: Dictionary for language learners\n"
-            "unif: Comprehensive dictionary with detailed information"
-        )
-
-        # Add to header layout
-        header_layout.addWidget(QLabel('Dictionary:'))
-        header_layout.addWidget(self._dict_selector)
-
         # Add search bar
         self._search = QLineEdit()
         self._search.setFocus()
-        self._search.returnPressed.connect(self.search_triggered)
+        self._search.returnPressed.connect(self._on_search_triggered)
         self._search_button = QPushButton('Search')
-        self._search_button.clicked.connect(self.search_triggered)
+        self._search_button.clicked.connect(self._on_search_triggered)
         search_layout = QHBoxLayout()
         search_layout.addWidget(self._search)
         search_layout.addWidget(self._search_button)
@@ -86,7 +89,7 @@ class SonaveebDialog(QWidget):
 
         # Add content UI
         self._form_selector = SelectorRow()
-        self._form_selector.selected.connect(self.form_selected)
+        self._form_selector.selected.connect(self._on_form_selected)
         self._search_results_layout = QVBoxLayout()
         self._search_results_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         search_results_container = QWidget()
@@ -130,35 +133,38 @@ class SonaveebDialog(QWidget):
         self._search.setFocus()
         self.set_status('Search something :)')
 
-        gui_hooks.theme_did_change.append(self.theme_changed)
+        gui_hooks.theme_did_change.append(self._on_theme_changed)
         self._sonaveeb = sonaveeb or Sonaveeb()
 
         # Restore config
         self._config = mw.addonManager.getConfig(__name__)
+        # - Deck
         if deck := self._config.get('deck'):
             self._deck_selector.setCurrentText(deck)
+        # - Translation language
         default_lang = anki.lang.get_def_lang()[1].split('_')[0]
         lang = self._config.get('language', default_lang)
         index_lang = self._lang_selector.findData(lang)
         if index_lang >= 0:
             self._lang_selector.setCurrentIndex(index_lang)
+        # - Sonaveeb mode
+        try:
+            mode = SonaveebMode[self._config.get('mode')]
+        except KeyError:
+            mode = Sonaveeb.DEFAULT_MODE
+        self._mode_selector.setCurrentText(mode.name)
 
-        # Initialize dictionary type from config
-        default_dict_type = Sonaveeb.DEFAULT_DICTIONARY
-        dict_type = self._config.get('dictionary', default_dict_type)
-        index_dict = self._dict_selector.findData(dict_type)
-        if index_dict >= 0:
-            self._dict_selector.setCurrentIndex(index_dict)
-            self._sonaveeb.select_dictionary(dict_type)
+        # Track Google translate requests in progress
+        self.pending_translation_requests = set()
 
-    def lang_code(self):
+    def language_code(self):
         return self._lang_selector.currentData()
 
     def deck_id(self):
         return self._deck_selector.currentData()
 
-    def dict_type(self):
-        return self._dict_selector.currentData()
+    def sonaveeb_mode(self):
+        return self._mode_selector.currentData()
 
     def search_results(self):
         return [
@@ -175,71 +181,77 @@ class SonaveebDialog(QWidget):
         while self._search_results_layout.count():
             child = self._search_results_layout.takeAt(0)
             child.widget().deleteLater()
+        self._lang_selector.setEnabled(True)
 
-    def request_search(self, query):
+    def _request_search(self, query):
         self._search_button.setEnabled(False)
+        self._mode_selector.setEnabled(False)
+        self._search.setEnabled(False)
         self.set_status('Searching...')
         operation = QueryOp(
             parent=self,
-            op=lambda col: self.search_candidates(query),
-            success=self.search_results_received
-        ).failure(self.handle_search_error)
+            op=lambda col: self._search_candidates(query, REQUEST_TIMEOUT),
+            success=self._on_search_results_received
+        ).failure(self._on_search_error)
         operation.run_in_background()
 
-    def search_candidates(self, query):
-        match, forms = self._sonaveeb.get_forms(query)
+    def _search_candidates(self, query, timeout=None):
+        match, forms = self._sonaveeb.get_base_form(query, timeout=timeout)
         if match is not None:
-            candidates = self._sonaveeb.get_candidates(match)
+            candidates = self._sonaveeb.get_references(match, timeout=timeout)
         else:
             candidates = []
         return candidates, forms
 
-    def search_triggered(self):
+    def _on_search_triggered(self):
         self.clear_search_results()
         query = self._search.text().strip()
         if query != '':
-            self.request_search(query)
+            self._request_search(query)
         else:
             self.set_status('Search something :)')
 
-    def theme_changed(self):
+    def _on_theme_changed(self):
         self._header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
 
-    def form_selected(self, form):
+    def _on_form_selected(self, form):
         print(f'Selected form: {form}')
         self._search.setText(form)
-        self.search_triggered()
+        self._on_search_triggered()
 
-    def language_changed(self, _index):
-        lang = self.lang_code()
+    def _on_language_changed(self, _index):
+        lang = self.language_code()
         for word_panel in self.search_results():
             word_panel.set_translation_language(lang)
         self._config['language'] = lang
         mw.addonManager.writeConfig(__name__, self._config)
 
-    def dictionary_changed(self, _index):
-        dict_type = self.dict_type()
-        self._sonaveeb.select_dictionary(dict_type)
-        self._config['dictionary'] = dict_type
+    def _on_mode_changed(self, _index):
+        mode = self.sonaveeb_mode()
+        self._sonaveeb.set_mode(mode)
+        self._config['mode'] = mode.name
         mw.addonManager.writeConfig(__name__, self._config)
         if self._search.text().strip():
-            self.search_triggered()
+            self._on_search_triggered()
 
-    def deck_changed(self, _index):
+    def _on_deck_changed(self, _index):
         deck_id = self.deck_id()
         for word_panel in self.search_results():
             word_panel.set_deck(deck_id)
         self._config['deck'] = self._deck_selector.currentText()
         mw.addonManager.writeConfig(__name__, self._config)
 
-    def search_results_received(self, result):
+    def _on_search_results_received(self, result):
         candidates, forms = result
         self._search_button.setEnabled(True)
+        self._mode_selector.setEnabled(True)
+        self._search.setEnabled(True)
+        self._search.setFocus()
         if len(candidates) == 0:
             if len(forms) == 0:
                 self.set_status('Not found :(')
             elif len(forms) == 1:
-                self.request_search(forms[0])
+                self._request_search(forms[0])
             else:
                 self._form_selector.set_label('Select base form:')
                 self._form_selector.set_options(forms)
@@ -251,15 +263,30 @@ class SonaveebDialog(QWidget):
             self._form_selector.setVisible(len(forms) > 0)
             self._content_stack.setCurrentWidget(self._content)
             for homonym in candidates:
-                word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.lang_code())
+                word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.language_code())
+                word_panel.translations_requested.connect(self._on_word_translation_requested)
                 self._search_results_layout.addWidget(word_panel)
 
-    def handle_search_error(self, error):
+    def _on_search_error(self, error):
         print(error)
-        self.set_status('Search failed :(')
+        self.set_status('Search failed :(\nPlease retry')
         self._search_button.setEnabled(True)
+        self._mode_selector.setEnabled(True)
+        self._search.setEnabled(True)
+        self._search.setFocus()
 
-
+    def _on_word_translation_requested(self, active):
+        widget = self.sender()
+        if active:
+            if not self.pending_translation_requests:
+                # The first translation request started
+                self._lang_selector.setEnabled(False)
+            self.pending_translation_requests.add(widget.word_info.word_id)
+        else:
+            self.pending_translation_requests.discard(widget.word_info.word_id)
+            if not self.pending_translation_requests:
+                # The last translation request finished
+                self._lang_selector.setEnabled(True)
 
 
 class SelectorRow(QWidget):
@@ -269,7 +296,7 @@ class SelectorRow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self._buttons = QButtonGroup()
-        self._buttons.idToggled.connect(self._button_toggled)
+        self._buttons.idToggled.connect(self._on_button_toggled)
         self._label = QLabel()
         self._layout = QHBoxLayout()
         self._layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -295,7 +322,7 @@ class SelectorRow(QWidget):
             self._layout.removeWidget(button)
             button.deleteLater()
 
-    def _button_toggled(self, index, checked):
+    def _on_button_toggled(self, index, checked):
         if checked:
             self.selected.emit(self._buttons.button(index).text())
             self.selected_index.emit(index)

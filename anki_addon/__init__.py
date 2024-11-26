@@ -25,3 +25,4 @@ mw.form.menuTools.addAction(action)
 gui_hooks.profile_will_close.append(destroy_sonaveeb_dialog)
 gui_hooks.profile_did_open.append(check_templates_updates)
 
+gui_hooks.profile_did_open.append(open_sonaveeb_dialog)

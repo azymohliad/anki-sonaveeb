@@ -1,5 +1,6 @@
 import os
 import re
+import enum
 import typing as tp
 import dataclasses as dc
 
@@ -7,44 +8,196 @@ import requests
 import bs4
 
 
-BASE_URL = 'https://sonaveeb.ee'
+class SonaveebMode(enum.Enum):
+    Lite = 0
+    Advanced = 1
+
 
 @dc.dataclass
-class Dictionary:
-    name: str
-    description: str
-    url_forms: str
-    url_search: str
-    url_details: str
+class LexemeInfo:
+    definition: str = None
+    rection: tp.List[str] = dc.field(default_factory=list)
+    synonyms: tp.List[str] = dc.field(default_factory=list)
+    translations: tp.Dict[str, tp.List[str]] = dc.field(default_factory=dict)
+    examples: tp.List[str] = dc.field(default_factory=list)
+    tags: tp.List[str] = dc.field(default_factory=list)
+    number: str = None
+    level: str = None
+
+
+@dc.dataclass
+class WordInfo:
+    word_id: int = None
+    word: str = None
+    word_class: str = None
+    url: str = None
+    lexemes: tp.List[LexemeInfo] = None
+    morphology: tp.List[tp.Tuple[str]] = None
+
+    def summary(self, lang=None):
+        data = {
+            'word_id': self.word_id,
+            'word': self.word,
+            'word_class': self.word_class,
+            'url': self.url,
+            'short_record': self.short_record(),
+            'morphology': self.morphology,
+            'lexemes': self.lexemes,
+        }
+        result = '\n'.join([f'{k}: {v}' for k, v in data.items() if v is not None])
+        return result
+
+    def short_record(self):
+        forms = [form[0] for form in self.morphology if len(form) > 0]
+        if len(forms) > 2:
+            p1 = os.path.commonprefix([forms[0], forms[1]])
+            p2 = os.path.commonprefix([forms[0], forms[1]])
+            prefix = p1 if len(p1) > len(p2) else p2
+            if len(prefix) > 3 or prefix == forms[0]:
+                if forms[0] == prefix:
+                    short = forms[0]
+                else:
+                    short = forms[0].replace(prefix, f'{prefix}/')
+                for form in forms[1:]:
+                    short += ', ' + form.replace(prefix, '-')
+            else:
+                short = ', '.join(forms)
+        elif len(forms) > 0:
+            short = forms[0]
+        else:
+            short = self.word
+        return short
+
+
+@dc.dataclass
+class WordReference:
+    word_id: int
+    url: str
+    lang: str
+    name: str = None
+    matches: str = None
+    summary: str = None
+
+
+@dc.dataclass
+class LookupUrls:
+    forms: str
+    search: str
+    details: str
+
 
 class Sonaveeb:
-    DICTIONARY_TYPES: tp.Dict[str, Dictionary] = {
-        'lite': Dictionary(
-            name='lite',
-            description='Dictionary for language learners',
-            url_forms='https://sonaveeb.ee/searchwordfrag/lite/{word}',
-            url_search='https://sonaveeb.ee/search/lite/dlall/{word}',
-            url_details='https://sonaveeb.ee/worddetails/lite/{word_id}'
+    '''Sonaveeb API wrapper.
+
+    There are two ways of using it:
+    - High-level API: simply
+    '''
+    BASE_URL = 'https://sonaveeb.ee'
+    MODE_URLS = {
+        SonaveebMode.Lite: LookupUrls(
+            forms='https://sonaveeb.ee/searchwordfrag/lite/{word}',
+            search='https://sonaveeb.ee/search/lite/dlall/{word}',
+            details='https://sonaveeb.ee/worddetails/lite/{word_id}'
         ),
-        'unif': Dictionary(
-            name='unif',
-            description='Comprehensive dictionary with detailed information',
-            url_forms='https://sonaveeb.ee/searchwordfrag/unif/{word}',
-            url_search='https://sonaveeb.ee/search/unif/dlall/dsall/{word}',
-            url_details='https://sonaveeb.ee/worddetails/unif/{word_id}'
+        SonaveebMode.Advanced: LookupUrls(
+            forms='https://sonaveeb.ee/searchwordfrag/unif/{word}',
+            search='https://sonaveeb.ee/search/unif/dlall/dsall/{word}',
+            details='https://sonaveeb.ee/worddetails/unif/{word_id}'
         )
     }
-    DEFAULT_DICTIONARY: str = 'unif'
+    DEFAULT_MODE = SonaveebMode.Lite
 
     def __init__(self):
         self.session = requests.Session()
-        self.select_dictionary(self.DEFAULT_DICTIONARY)
+        self.set_mode(self.DEFAULT_MODE)
 
-    def select_dictionary(self, dict_type: str) -> None:
-        try:
-            self.dictionary = self.DICTIONARY_TYPES[dict_type]
-        except KeyError:
-            self.dictionary = self.DICTIONARY_TYPES[self.DEFAULT_DICTIONARY]
+    def set_mode(self, mode: SonaveebMode) -> None:
+        '''Set Sõnaveeb mode.'''
+        self.urls = self.MODE_URLS[mode]
+        self.mode = mode
+
+    def get_base_form(self, word: str, timeout=None) -> tp.Tuple[str, tp.List[str]]:
+        '''Search for a base form of a requested word.
+
+        Args:
+            word: Estonian word in any form.
+
+        Returns: tuple
+            exact_match: The query word itself if it was in its
+                base form already or None.
+            base_forms: list of words in their base forms, a form
+                of which the query word could be.
+        '''
+        self._ensure_session(timeout=timeout)
+        url = self.urls.forms.format(word=word)
+        resp = self._request(url, timeout=timeout)
+        data = resp.json()
+        base_forms = data['formWords']
+        exact_match = word if word in data['prefWords'] else None
+        return exact_match, base_forms
+
+    def get_references(self, base_form: str, lang='et', timeout=None, debug=False) -> tp.List[WordReference]:
+        '''Get a list of references for all homonyms of the word.
+
+        Args:
+            base_form: Estonian word in its base form.
+
+        Returns:
+            references: List of WordReference objects.
+        '''
+        # Request word lookup page
+        dom = self._word_lookup_dom(base_form, timeout=None)
+        # Save HTML page for debugging
+        if debug:
+            open(os.path.join('debug', f'lookup_{base_form}.html'), 'w').write(dom.prettify())
+        # Parse results
+        references = self._parse_search_results(dom, lang=lang)
+        return references
+
+    def get_word_info_by_reference(self, reference: WordReference, timeout=None, debug=False):
+        '''Get word info from word reference.
+
+        Args:
+            reference: WordReference object.
+
+        Returns:
+            word_info: WordInfo object.
+        '''
+        # Request word details page
+        dom = self._word_details_dom(reference.word_id, timeout=timeout)
+
+        # Save HTML page for debugging
+        if debug:
+            open(os.path.join('debug', f'details_{reference.name}.html'), 'w').write(dom.prettify())
+
+        # Parse results
+        word_info = self._parse_word_info(dom)
+        word_info.word_id = reference.word_id
+        word_info.url = reference.url
+        return word_info
+
+    def get_word_info(self, word: str, lang='et', timeout=None, debug=False):
+        '''Get word info for the first matching homonym of a requested word.
+
+        This is a high-level API that performs end-to-end search from a
+        query word to `WordInfo` object. It is the simplest API to use, but
+        it doesn't allow to select a base form word and homonym if there
+        are multiple.
+
+        Args:
+            word: Estonian word in any form.
+
+        Returns:
+            word_info: WordInfo object.
+        '''
+        match, forms = self.get_base_form(word, timeout=timeout)
+        if match is None and len(forms) == 0:
+            return None
+        word = forms[0] if match is None else match
+        homonyms = self.get_references(word, lang, timeout, debug)
+        if len(homonyms) == 0:
+            return None
+        return self.get_word_info_by_reference(homonyms[0], timeout, debug)
 
     def _request(self, *args, **kwargs):
         resp = self.session.get(*args, **kwargs)
@@ -52,20 +205,20 @@ class Sonaveeb:
             raise RuntimeError(f'Request failed: {resp.status_code}')
         return resp
 
-    def _ensure_session(self):
+    def _ensure_session(self, timeout=None):
         if 'ww-sess' not in self.session.cookies:
-            self._request(BASE_URL)
+            self._request(self.BASE_URL)
 
-    def _word_lookup_dom(self, word):
-        self._ensure_session()
-        url = self.dictionary.url_search.format(word=word)
-        resp = self._request(url)
+    def _word_lookup_dom(self, word, timeout=None):
+        self._ensure_session(timeout=timeout)
+        url = self.urls.search.format(word=word)
+        resp = self._request(url, timeout=timeout)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
-    def _word_details_dom(self, word_id):
-        self._ensure_session()
-        url = self.dictionary.url_details.format(word_id=word_id)
-        resp = self._request(url)
+    def _word_details_dom(self, word_id, timeout=None):
+        self._ensure_session(timeout=timeout)
+        url = self.urls.details.format(word_id=word_id)
+        resp = self._request(url, timeout=timeout)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
     def _parse_search_results(self, dom, lang=None):
@@ -76,7 +229,7 @@ class Sonaveeb:
             if word_id := homonym.find('input', attrs=dict(name='word-id')):
                 kwargs['word_id'] = word_id['value']
             if url := homonym.find('input', attrs=dict(name='word-select-url')):
-                kwargs['url'] = BASE_URL + '/' + url['value']
+                kwargs['url'] = self.BASE_URL + '/' + url['value']
             if language := homonym.find(class_='lang-code'):
                 kwargs['lang'] = language.string
             if name := homonym.find(class_='homonym-name'):
@@ -85,7 +238,7 @@ class Sonaveeb:
                 kwargs['matches'] = matches.string
             if summary := homonym.find(class_='homonym-intro'):
                 kwargs['summary'] = summary.string
-            homonyms.append(SearchCandidate(**kwargs))
+            homonyms.append(WordReference(**kwargs))
         # Filter by language
         if lang is not None:
             homonyms = [r for r in homonyms if r.lang == lang]
@@ -100,15 +253,13 @@ class Sonaveeb:
             return definition, level
 
         # Extract language level if present
-        for meta_span in definition_row.find_all(class_='additional-meta'):
-            if meta_span.get('title') == 'Keeleoskustase':
-                level = meta_span.string.strip()
-                break
+        if level := definition_row.find(class_='additional-meta', title='Keeleoskustase'):
+            level = level.string.strip()
 
         # Extract definitions
         definitions = []
         for def_entry in definition_row.find_all(id=re.compile('^definition-entry')):
-            if def_text := _remove_eki_tags(def_entry.span):
+            if def_text := self._remove_eki_tags(def_entry.span):
                 definitions.append(def_text.strip())
 
         if definitions:
@@ -142,17 +293,17 @@ class Sonaveeb:
             if lang_code := panel.find(class_='lang-code'):
                 lang = lang_code.string
                 values = [
-                    _remove_eki_tags(a.span.span)
+                    self._remove_eki_tags(a.span.span)
                     for a in panel.find_all('a', class_='matching-word')
                 ]
                 if values:
                     translations[lang] = values
         return translations
 
-    def _parse_lexeme_examples(self, match, max_examples=3):
-        '''Extract example sentences, limiting to max_examples'''
+    def _parse_lexeme_examples(self, match):
+        '''Extract example sentences'''
         examples = []
-        for example in match.find_all(class_='example-text-value', limit=max_examples):
+        for example in match.find_all(class_='example-text-value'):
             if example.string:
                 examples.append(example.string)
         return examples
@@ -174,8 +325,8 @@ class Sonaveeb:
         if homonym_name := dom.find(class_='homonym-name'):
             info.word = homonym_name.span.string
 
-        if pos_tag := dom.find(class_='content-title').find(class_='tag'):
-            info.pos = pos_tag.string
+        if word_class_tag := dom.find(class_='content-title').find(class_='tag'):
+            info.word_class = word_class_tag.string
 
         # Initialize lexemes list
         info.lexemes = []
@@ -212,7 +363,7 @@ class Sonaveeb:
             ]
 
             # Create lexeme object
-            lexeme = Lexeme(
+            lexeme = LexemeInfo(
                 definition=definition,
                 rection=rection,
                 synonyms=synonyms,
@@ -232,131 +383,22 @@ class Sonaveeb:
                 for row in morphology_table.find_all('tr'):
                     cells = row.find_all('span', class_='form-value-field')
                     if cells:
-                        entry = tuple(_remove_eki_tags(c) for c in cells)
+                        entry = tuple(self._remove_eki_tags(c) for c in cells)
                         info.morphology.append(entry)
 
         return info
 
-    def get_forms(self, word):
-        self._ensure_session()
-        url = self.dictionary.url_forms.format(word=word)
-        resp = self._request(url)
-        data = resp.json()
-        forms = data['formWords']
-        match = word if word in data['prefWords'] else None
-        return match, forms
+    @staticmethod
+    def _remove_eki_tags(element):
+        if not element:
+            return ''
 
-    def get_candidates(self, word, lang='et', debug=False):
-        # Request word lookup page
-        dom = self._word_lookup_dom(word)
-        # Save HTML page for debugging
-        if debug:
-            open(os.path.join('debug', f'lookup_{word}.html'), 'w').write(dom.prettify())
-        # Parse results
-        homonyms = self._parse_search_results(dom, lang=lang)
-        return homonyms
+        result = ''.join(el.text for el in element.contents if el)
 
-    def get_word_info_by_candidate(self, candidate, debug=False):
-        # Request word details page
-        dom = self._word_details_dom(candidate.word_id)
+        # Clean up common tags
+        eki_tags = ['eki-stress', 'eki-form']
+        for tag in eki_tags:
+            result = result.replace(f'<{tag}>', '')
+            result = result.replace(f'</{tag}>', '')
 
-        # Save HTML page for debugging
-        if debug:
-            open(os.path.join('debug', f'details_{candidate.name}.html'), 'w').write(dom.prettify())
-
-        # Parse results
-        word_info = self._parse_word_info(dom)
-        word_info.word_id = candidate.word_id
-        word_info.url = candidate.url
-        return word_info
-
-    def get_word_info(self, word, lang='et', debug=False):
-        match, forms = self.get_forms(word)
-        if match is None and len(forms) == 0:
-            return None
-        word = forms[0] if match is None else match
-        homonyms = self.get_candidates(word, lang, debug)
-        if len(homonyms) == 0:
-            return None
-        return self.get_word_info_by_candidate(homonyms[0], debug)
-
-
-@dc.dataclass
-class SearchCandidate:
-    word_id: int
-    url: str
-    lang: str
-    name: str = None
-    matches: str = None
-    summary: str = None
-
-
-@dc.dataclass
-class Lexeme:
-    definition: str = None
-    rection: tp.List[str] = None
-    synonyms: tp.List[str] = None
-    translations: tp.Dict[str, tp.List[str]] = dc.field(default_factory=dict)
-    examples: tp.List[str] = None
-    tags: tp.List[str] = None
-    number: str = None
-    level: str = None
-
-
-@dc.dataclass
-class WordInfo:
-    word_id: int = None
-    word: str = None
-    url: str = None
-    pos: str = None
-    lexemes: tp.List[Lexeme] = None
-    morphology: tp.List[tp.Tuple[str]] = None
-
-    def summary(self, lang=None):
-        data = {
-            'word_id': self.word_id,
-            'word': self.word,
-            'url': self.url,
-            'pos': self.pos,
-            'short_record': self.short_record(),
-            'morphology': self.morphology,
-            'lexemes': self.lexemes,
-        }
-        result = '\n'.join([f'{k}: {v}' for k, v in data.items() if v is not None])
-        return result
-
-    def short_record(self):
-        forms = [form[0] for form in self.morphology if len(form) > 0]
-        if len(forms) > 2:
-            p1 = os.path.commonprefix([forms[0], forms[1]])
-            p2 = os.path.commonprefix([forms[0], forms[1]])
-            prefix = p1 if len(p1) > len(p2) else p2
-            if len(prefix) > 3 or prefix == forms[0]:
-                if forms[0] == prefix:
-                    short = forms[0]
-                else:
-                    short = forms[0].replace(prefix, f'{prefix}/')
-                for form in forms[1:]:
-                    short += ', ' + form.replace(prefix, '-')
-            else:
-                short = ', '.join(forms)
-        elif len(forms) > 0:
-            short = forms[0]
-        else:
-            short = self.word
-        return short
-
-
-def _remove_eki_tags(element):
-    if not element:
-        return ''
-
-    result = ''.join(el.text for el in element.contents if el)
-
-    # Clean up common tags
-    eki_tags = ['eki-stress', 'eki-form']
-    for tag in eki_tags:
-        result = result.replace(f'<{tag}>', '')
-        result = result.replace(f'</{tag}>', '')
-
-    return result.strip()
+        return result.strip()
