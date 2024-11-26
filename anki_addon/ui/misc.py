@@ -6,12 +6,14 @@ from .. import note_type as nt
 
 POPUP_TITLE = 'Update Sõnaveeb Card Templates?'
 POPUP_TEXT = f'''\
-Card templates update for "{nt.MODEL_NAME_DEFAULT}" note type is available.
-
-If you modified the templates manually and would prefer to keep using them \
-without receiving updates, rename "{nt.MODEL_NAME_DEFAULT}" note type into \
-"{nt.MODEL_NAME_USER}".
-
+Card templates update for "{nt.MODEL_NAME_DEFAULT}" note type is available. \
+If accepted, it will change the look of your cards. See more details about it \
+in the <a href="https://github.com/azymohliad/anki-sonaveeb/releases/latest">\
+latest release notes</a>.
+<br><br>
+If you would like to preserve their current look and not see this message \
+anymore, rename "{nt.MODEL_NAME_DEFAULT}" note type into "{nt.MODEL_NAME_USER}".
+<br><br>
 Update card templates?
 '''
 
