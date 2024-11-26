@@ -2,10 +2,14 @@
 
 ## Unreleased
 
-- Added "Word ID", "Definition" and "Examples" to note fields.
-- Added an option to search in full Sõnaveeb (unif) and Keeleõppija Sõnaveeb (lite).
+- Added "Word ID", "Definition", "Examples", and "Rection" to note fields.
+- Added an option to select between full Sõnaveeb and Keeleõppija Sõnaveeb.
 - Added language level to tags, if word comes from Keeleõppija Sõnaveeb.
 - Added an option to choose between different lexemes of one homonym (for example, to create a võrk card not for Web, WWW, but for net).
+- Added definition, examples, rection, and tags to card templates.
+- Fixed possible errors when re-triggering the search repeatedly without delays.
+- Fixed incorrect translation override when changing the language while Google Translation is in progress.
+- Fixed possibility to duplicate search results by pressing enter in the search bar repeatedly.
 
 ## v0.6.0 - 2024-03-06
 
