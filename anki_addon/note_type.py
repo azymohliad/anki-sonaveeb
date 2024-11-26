@@ -15,6 +15,7 @@ MODEL_FIELDS = [
 ]
 
 TEMPLATE_FORWARD_NAME = 'Translate from Estonian'
+
 TEMPLATE_FORWARD_FRONT = '''\
 <div class="tags">{{Tags}}</div>
 {{Morphology}}
@@ -26,6 +27,7 @@ TEMPLATE_FORWARD_FRONT = '''\
 </div>
 {{/Examples}}
 '''
+
 TEMPLATE_FORWARD_BACK = '''\
 {{FrontSide}}
 
@@ -43,10 +45,12 @@ TEMPLATE_FORWARD_BACK = '''\
 '''
 
 TEMPLATE_REVERSE_NAME = 'Translate into Estonian'
+
 TEMPLATE_REVERSE_FRONT = '''\
 <div class="tags">{{Tags}}</div>
 {{Translation}}
 '''
+
 TEMPLATE_REVERSE_BACK = '''\
 {{FrontSide}}
 
@@ -88,6 +92,10 @@ STYLE = '''\
     font-size: 18px;
 }
 
+.nightMode .tags {
+    color: #999;
+}
+
 .rection {
     text-align: center;
     font-style: italic;
@@ -96,11 +104,19 @@ STYLE = '''\
     font-size: 16px;
 }
 
+.nightMode .rection {
+    color: #AAA;
+}
+
 .definition {
     font-style: italic;
     color: #666;
     margin: 10px 0;
     font-size: 18px;
+}
+
+.nightMode .definition {
+    color: #999;
 }
 
 .translation {
@@ -116,6 +132,10 @@ STYLE = '''\
 .examples h4 {
     color: #666;
     margin-bottom: 5px;
+}
+
+.nightMode .examples h4 {
+    color: #999;
 }
 
 .footer {
