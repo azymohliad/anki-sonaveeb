@@ -11,7 +11,7 @@ from aqt import colors
 from aqt.theme import theme_manager
 from aqt.operations import QueryOp
 
-from ..sonaveeb import Lexeme
+from ..sonaveeb import LexemeInfo
 from ..gtranslate import cross_translate
 from ..globals import REQUEST_TIMEOUT
 
@@ -24,7 +24,7 @@ class LexemeWidget(QWidget):
 
     def __init__(
             self,
-            lexeme: Lexeme,
+            lexeme: LexemeInfo,
             word_class: str,
             examples_limit: int = None,
             translations_limit: int = None,
@@ -160,7 +160,7 @@ class LexemesContainer(QWidget):
 
     def __init__(
             self,
-            lexemes: List[Lexeme] = None,
+            lexemes: List[LexemeInfo] = None,
             lexemes_limit: int = None,
             examples_limit: int = None,
             translations_limit: int = None,
@@ -179,7 +179,7 @@ class LexemesContainer(QWidget):
         if lexemes:
             self.set_data(lexemes)
 
-    def set_data(self, lexemes: List[Lexeme], word_class: str):
+    def set_data(self, lexemes: List[LexemeInfo], word_class: str):
         '''Update the lexeme display with new data'''
         self.clear()
         for i, lexeme in enumerate(lexemes[:self.lexemes_limit]):

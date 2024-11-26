@@ -22,14 +22,13 @@ from .lexeme import LexemesContainer, LexemeWidget
 class WordInfoPanel(QGroupBox):
     translations_requested = pyqtSignal(bool)
 
-    def __init__(self, search_info, sonaveeb, deck_id, lang, parent=None):
+    def __init__(self, word_reference, sonaveeb, deck_id, lang, parent=None):
         super().__init__(parent=parent)
         # Set state
         self.deck_id = deck_id
         self.lang = lang
-        self.search_info = search_info
+        self.word_reference = word_reference
         self.word_info = None
-        self.translations = None
         self.note = None
         self._note_type = None
         self._sonaveeb = sonaveeb
@@ -259,8 +258,8 @@ class WordInfoPanel(QGroupBox):
         self.set_status('Loading...')
         operation = QueryOp(
             parent=self,
-            op=lambda col: self._sonaveeb.get_word_info_by_candidate(
-                self.search_info, timeout=REQUEST_TIMEOUT
+            op=lambda col: self._sonaveeb.get_word_info_by_reference(
+                self.word_reference, timeout=REQUEST_TIMEOUT
             ),
             success=self._on_word_info_received
         ).failure(self._on_word_request_error)
