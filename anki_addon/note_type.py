@@ -18,7 +18,7 @@ TEMPLATE_FORWARD_NAME = 'Translate from Estonian'
 
 TEMPLATE_FORWARD_FRONT = '''\
 <div class="tags">{{Tags}}</div>
-{{Morphology}}
+<div class="morphology">{{Morphology}}</div>
 <div class="rection">{{Rection}}</div>
 {{#Examples}}
 <div class="examples">
@@ -30,13 +30,9 @@ TEMPLATE_FORWARD_FRONT = '''\
 
 TEMPLATE_FORWARD_BACK = '''\
 {{FrontSide}}
-
 <hr id=answer>
-
 <div class="definition">{{Definition}}</div>
-
 <div class="translation">{{Translation}}</div>
-
 <div class="footer">
     <button onclick="window.location.href='{{URL}}';">
         Sõnaveeb
@@ -48,7 +44,7 @@ TEMPLATE_REVERSE_NAME = 'Translate into Estonian'
 
 TEMPLATE_REVERSE_FRONT = '''\
 <div class="tags">{{Tags}}</div>
-{{Translation}}
+<div class="translation">{{Translation}}</div>
 '''
 
 TEMPLATE_REVERSE_BACK = '''\
@@ -56,9 +52,8 @@ TEMPLATE_REVERSE_BACK = '''\
 
 <hr id=answer>
 
-{{Morphology}}
+<div class="morphology">{{Morphology}}</div>
 <div class="rection">{{Rection}}</div>
-
 <div class="definition">{{Definition}}</div>
 
 {{#Examples}}
@@ -82,6 +77,10 @@ STYLE = '''\
     text-align: center;
     color: black;
     background-color: white;
+}
+
+.morphology {
+    font-weight: bold;
 }
 
 .tags {
