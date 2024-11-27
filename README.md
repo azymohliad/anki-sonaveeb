@@ -2,13 +2,13 @@
 
 [🇺🇦 Українською](README_UK.md)
 
-An [Anki](https://apps.ankiweb.net/) addon for automating Estonian vocabulary flashcards creation.
+An [Anki](https://apps.ankiweb.net/) addon that helps creating Estonian vocabulary flashcards.
 
 Simply type an Estonian word in any form, and generate a flashcard containing its principal forms along with translation into your preferred language, definition, examples, and other information in a few clicks.
 
 Dictionary data is obtained from [Sõnaveeb](https://sonaveeb.ee/), with fallback to [Google Translate](https://translate.google.com) for missing translations.
 
-![screenshot](https://github.com/azymohliad/anki-sonaveeb/assets/4020369/d1374e10-abdb-42fe-a083-47e30865b2ce)
+![screenshot](https://github.com/user-attachments/assets/beb1ce2b-d3e6-4752-9288-01e7b6db0c75)
 
 ### About Anki
 
