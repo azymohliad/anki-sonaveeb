@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.1 - 2024-12-17
+
+- Disabled Sõnaveeb Deck Builder autolaunch at Anki startup, which was enabled for debugging and accidentally leaked into a release.
+
 ## v0.7.0 - 2024-11-27
 
 - Added "Word ID", "Definition", "Examples", and "Rection" to note fields.
