@@ -13,7 +13,7 @@ from .word_info import WordInfoPanel
 
 
 class SonaveebDialog(QWidget):
-    def __init__(self, sonaveeb=None, parent=None):
+    def __init__(self, notetypes, sonaveeb=None, parent=None):
         super().__init__(parent=parent)
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Sõnaveeb Deck Builder')
@@ -28,6 +28,16 @@ class SonaveebDialog(QWidget):
         self._deck_selector.setMinimumWidth(100)
         deck_label = QLabel('&Deck:')
         deck_label.setBuddy(self._deck_selector)
+
+        # - Add note type selector
+        self._notetype_selector = QComboBox()
+        for notetype in notetypes:
+            self._notetype_selector.addItem(notetype['name'], userData=notetype['id'])
+        self._notetype_selector.currentIndexChanged.connect(self._on_notetype_changed)
+        self._notetype_selector.setMinimumWidth(100)
+        notetype_label = QLabel('&Note Type:')
+        notetype_label.setBuddy(self._notetype_selector)
+
         # - Add language selector
         languages = {
             code.split('_')[0]: name.split(' ')[0]
@@ -42,7 +52,8 @@ class SonaveebDialog(QWidget):
         self._lang_selector.currentIndexChanged.connect(self._on_language_changed)
         lang_label = QLabel('&Translate into:')
         lang_label.setBuddy(self._lang_selector)
-        # - Add dictionary selector
+
+        # - Add mode selector
         mode_tooltip = (
             'Sõnaveeb mode:\n'
             f"- {SonaveebMode.Lite.name}: Learner's Sõnaveeb - dictionary for "
@@ -58,10 +69,13 @@ class SonaveebDialog(QWidget):
         mode_label = QLabel('Sõnaveeb &Mode:')
         mode_label.setToolTip(mode_tooltip)
         mode_label.setBuddy(self._mode_selector)
+
         # - Populate header bar
         header_layout = QHBoxLayout()
         header_layout.addWidget(deck_label)
         header_layout.addWidget(self._deck_selector)
+        header_layout.addWidget(notetype_label)
+        header_layout.addWidget(self._notetype_selector)
         header_layout.addStretch(1)
         header_layout.addWidget(lang_label)
         header_layout.addWidget(self._lang_selector)
@@ -139,15 +153,22 @@ class SonaveebDialog(QWidget):
         # Restore config
         self._config = mw.addonManager.getConfig(__name__)
         # - Deck
-        if deck := self._config.get('deck'):
-            self._deck_selector.setCurrentText(deck)
+        deck_id = self._config.get('deck')
+        index_deck = self._deck_selector.findData(deck_id)
+        if index_deck >= 0:
+            self._deck_selector.setCurrentIndex(index_deck)
+        # - Note Type
+        notetype = self._config.get('notetype')
+        index_notetype = self._notetype_selector.findData(notetype)
+        if index_notetype >= 0:
+            self._notetype_selector.setCurrentIndex(index_notetype)
         # - Translation language
         default_lang = anki.lang.get_def_lang()[1].split('_')[0]
         lang = self._config.get('language', default_lang)
         index_lang = self._lang_selector.findData(lang)
         if index_lang >= 0:
             self._lang_selector.setCurrentIndex(index_lang)
-        # - Sonaveeb mode
+        # - Sonaveeb modes
         try:
             mode = SonaveebMode[self._config.get('mode')]
         except KeyError:
@@ -162,6 +183,9 @@ class SonaveebDialog(QWidget):
 
     def deck_id(self):
         return self._deck_selector.currentData()
+
+    def notetype_id(self):
+        return self._notetype_selector.currentData()
 
     def sonaveeb_mode(self):
         return self._mode_selector.currentData()
@@ -198,10 +222,10 @@ class SonaveebDialog(QWidget):
     def _search_candidates(self, query, timeout=None):
         match, forms = self._sonaveeb.get_base_form(query, timeout=timeout)
         if match is not None:
-            candidates = self._sonaveeb.get_references(match, timeout=timeout)
+            references = self._sonaveeb.get_references(match, timeout=timeout)
         else:
-            candidates = []
-        return candidates, forms
+            references = []
+        return references, forms
 
     def _on_search_triggered(self):
         self.clear_search_results()
@@ -238,16 +262,24 @@ class SonaveebDialog(QWidget):
         deck_id = self.deck_id()
         for word_panel in self.search_results():
             word_panel.set_deck(deck_id)
-        self._config['deck'] = self._deck_selector.currentText()
+        self._config['deck'] = deck_id
+        mw.addonManager.writeConfig(__name__, self._config)
+
+    def _on_notetype_changed(self, _index):
+        notetype_id = self.notetype_id()
+        notetype = mw.col.models.get(notetype_id)
+        for word_panel in self.search_results():
+            word_panel.set_notetype(notetype)
+        self._config['notetype'] = notetype_id
         mw.addonManager.writeConfig(__name__, self._config)
 
     def _on_search_results_received(self, result):
-        candidates, forms = result
+        references, forms = result
         self._search_button.setEnabled(True)
         self._mode_selector.setEnabled(True)
         self._search.setEnabled(True)
         self._search.setFocus()
-        if len(candidates) == 0:
+        if len(references) == 0:
             if len(forms) == 0:
                 self.set_status('Not found :(')
             elif len(forms) == 1:
@@ -262,8 +294,9 @@ class SonaveebDialog(QWidget):
             self._form_selector.set_label('See also:')
             self._form_selector.setVisible(len(forms) > 0)
             self._content_stack.setCurrentWidget(self._content)
-            for homonym in candidates:
-                word_panel = WordInfoPanel(homonym, self._sonaveeb, self.deck_id(), self.language_code())
+            notetype = mw.col.models.get(self.notetype_id())
+            for reference in references:
+                word_panel = WordInfoPanel(reference, self._sonaveeb, self.deck_id(), notetype, self.language_code())
                 word_panel.translations_requested.connect(self._on_word_translation_requested)
                 self._search_results_layout.addWidget(word_panel)
 

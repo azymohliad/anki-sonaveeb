@@ -7,7 +7,7 @@ from aqt.operations import QueryOp
 from aqt.theme import theme_manager
 from aqt import mw, colors
 
-from .. import note_type as nt
+from ..notetypes import NoteTypeManager
 from ..globals import (
     REQUEST_TIMEOUT,
     TRANSLATIONS_LIMIT,
@@ -22,10 +22,11 @@ from .lexeme import LexemesContainer, LexemeWidget
 class WordInfoPanel(QGroupBox):
     translations_requested = pyqtSignal(bool)
 
-    def __init__(self, word_reference, sonaveeb, deck_id, lang, parent=None):
+    def __init__(self, word_reference, sonaveeb, deck_id, notetype, lang, parent=None):
         super().__init__(parent=parent)
         # Set state
         self.deck_id = deck_id
+        self.notetype = notetype
         self.lang = lang
         self.word_reference = word_reference
         self.word_info = None
@@ -122,11 +123,14 @@ class WordInfoPanel(QGroupBox):
         self._replace_button.hide()
         self._lexemes_container.set_translation_language(lang)
 
-    def set_deck(self, deck_id):
+    def set_deck_id(self, deck_id):
         '''Set deck ID.'''
         self.deck_id = deck_id
         if self.word_info is not None:
             self.check_note_exists()
+
+    def set_notetype(self, notetype):
+        self.notetype = notetype
 
     def set_status(self, status):
         '''Set status message.'''
@@ -178,7 +182,7 @@ class WordInfoPanel(QGroupBox):
         '''
         exists = self.note is not None
         if exists:
-            if len(set(nt.MODEL_FIELDS) - set(self.note.keys())) > 0:
+            if len(set(NoteTypeManager.FIELDS) - set(self.note.keys())) > 0:
                 # Notes that lack any field are considered outdated
                 identical = False
             else:
@@ -188,22 +192,9 @@ class WordInfoPanel(QGroupBox):
         # Update button visibility
         self._replace_button.setVisible(exists and not identical)
 
-    def get_note_type(self):
-        if self._note_type is None:
-            if (ntype := nt.find_user_note_type()) is not None:
-                nt.validate_note_type(ntype)
-                self._note_type = ntype['id']
-            elif (ntype := nt.find_default_note_type()) is not None:
-                nt.validate_note_type(ntype)
-                self._note_type = ntype['id']
-            else:
-                self._note_type = nt.add_default_note_type()
-        return self._note_type
-
     def add_note(self):
         '''Add a new note to the collection'''
-        ntype = self.get_note_type()
-        note = mw.col.new_note(ntype)
+        note = mw.col.new_note(self.notetype)
         self.fill_note(note)
         mw.col.add_note(note, self.deck_id)
         self.note = note
@@ -284,17 +275,9 @@ class WordInfoPanel(QGroupBox):
             self.set_word_info(word_info)
 
     def _on_add_button_clicked(self):
-        try:
-            self.add_note()
-        except nt.NoteTypeError as exc:
-            QMessageBox.warning(self, 'Malformed note type',
-                f'Note type "{exc.note_type["name"]}" is malformed. You can'
-                ' remove or rename it from "Tools -> Manage Note Types", and'
-                ' the default one will be recreated automatically'
-            )
-        else:
-            self._add_button.hide()
-            self._delete_button.show()
+        self.add_note()
+        self._add_button.hide()
+        self._delete_button.show()
 
     def _on_delete_button_clicked(self):
         try:
