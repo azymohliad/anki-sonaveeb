@@ -1,6 +1,6 @@
 import anki.lang
 from aqt.qt import (
-    pyqtSignal, Qt, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
+    pyqtSignal, Qt, QEvent, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
     QPushButton, QButtonGroup, QStackedWidget, QComboBox, QScrollArea,
 )
 from aqt.operations import QueryOp
@@ -8,13 +8,21 @@ from aqt.theme import theme_manager
 from aqt import mw, colors, gui_hooks
 
 from ..sonaveeb import Sonaveeb, SonaveebMode
+from ..notetypes import NoteTypeManager
 from ..globals import REQUEST_TIMEOUT
 from .word_info import WordInfoPanel
+from .notetype_updater import check_notetype_updates
 
 
 class SonaveebDialog(QWidget):
-    def __init__(self, notetypes, sonaveeb=None, parent=None):
+    def __init__(self, notetype_manager=None, sonaveeb=None, parent=None):
         super().__init__(parent=parent)
+        self._notetype_manager = notetype_manager or NoteTypeManager()
+        self._sonaveeb = sonaveeb or Sonaveeb()
+
+        notetype_manager.create_missing_defaults()
+        check_notetype_updates(notetype_manager)
+
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Sõnaveeb Deck Builder')
         self.resize(700, 800)
@@ -22,8 +30,7 @@ class SonaveebDialog(QWidget):
         # Add header bar
         # - Add deck selector
         self._deck_selector = QComboBox()
-        for deck in mw.col.decks.all_names_and_ids():
-            self._deck_selector.addItem(deck.name, userData=deck.id)
+        self._update_decks()
         self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
         self._deck_selector.setMinimumWidth(100)
         deck_label = QLabel('&Deck:')
@@ -31,8 +38,7 @@ class SonaveebDialog(QWidget):
 
         # - Add note type selector
         self._notetype_selector = QComboBox()
-        for notetype in notetypes:
-            self._notetype_selector.addItem(notetype['name'], userData=notetype['id'])
+        self._update_notetypes()
         self._notetype_selector.currentIndexChanged.connect(self._on_notetype_changed)
         self._notetype_selector.setMinimumWidth(100)
         notetype_label = QLabel('&Note Type:')
@@ -148,7 +154,6 @@ class SonaveebDialog(QWidget):
         self.set_status('Search something :)')
 
         gui_hooks.theme_did_change.append(self._on_theme_changed)
-        self._sonaveeb = sonaveeb or Sonaveeb()
 
         # Restore config
         self._config = mw.addonManager.getConfig(__name__)
@@ -320,6 +325,37 @@ class SonaveebDialog(QWidget):
             if not self.pending_translation_requests:
                 # The last translation request finished
                 self._lang_selector.setEnabled(True)
+
+    def _update_combobox(self, combobox, items):
+        # Remove redundant items
+        for i in reversed(range(combobox.count())):
+            name = combobox.itemText(i)
+            data = combobox.itemData(i)
+            if not any([n == name and d == data for n, d in items]):
+                combobox.removeItem(i)
+        # Add missing items
+        for name, data in items:
+            idx = combobox.findText(name)
+            if idx == -1:
+                combobox.addItem(name, userData=data)
+
+    def _update_notetypes(self):
+        notetypes = self._notetype_manager.get_valid_notetypes()
+        items = [(nt['name'], nt['id']) for nt in notetypes]
+        self._update_combobox(self._notetype_selector, items)
+
+    def _update_decks(self):
+        decks = mw.col.decks.all_names_and_ids()
+        items = [(d.name, d.id) for d in decks]
+        self._update_combobox(self._deck_selector, items)
+
+    # QWidget overrides
+    def changeEvent(self, event):
+        if event.type() == QEvent.Type.ActivationChange:
+            if self.isActiveWindow():
+                # Window activated
+                self._update_notetypes()
+                self._update_decks()
 
 
 class SelectorRow(QWidget):
