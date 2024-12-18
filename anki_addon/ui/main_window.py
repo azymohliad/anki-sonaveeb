@@ -33,6 +33,7 @@ class SonaveebDialog(QWidget):
         self._update_decks()
         self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
         self._deck_selector.setMinimumWidth(100)
+        self._deck_selector.setPlaceholderText('None')
         deck_label = QLabel('&Deck:')
         deck_label.setBuddy(self._deck_selector)
 
@@ -41,6 +42,7 @@ class SonaveebDialog(QWidget):
         self._update_notetypes()
         self._notetype_selector.currentIndexChanged.connect(self._on_notetype_changed)
         self._notetype_selector.setMinimumWidth(100)
+        self._notetype_selector.setPlaceholderText('None')
         notetype_label = QLabel('&Note Type:')
         notetype_label.setBuddy(self._notetype_selector)
 
@@ -232,6 +234,10 @@ class SonaveebDialog(QWidget):
             references = []
         return references, forms
 
+    def _save_config_value(self, key, value):
+        self._config[key] = value
+        mw.addonManager.writeConfig(__name__, self._config)
+
     def _on_search_triggered(self):
         self.clear_search_results()
         query = self._search.text().strip()
@@ -252,31 +258,27 @@ class SonaveebDialog(QWidget):
         lang = self.language_code()
         for word_panel in self.search_results():
             word_panel.set_translation_language(lang)
-        self._config['language'] = lang
-        mw.addonManager.writeConfig(__name__, self._config)
+        self._save_config_value('language', lang)
 
     def _on_mode_changed(self, _index):
         mode = self.sonaveeb_mode()
         self._sonaveeb.set_mode(mode)
-        self._config['mode'] = mode.name
-        mw.addonManager.writeConfig(__name__, self._config)
+        self._save_config_value('mode', mode.name)
         if self._search.text().strip():
             self._on_search_triggered()
 
     def _on_deck_changed(self, _index):
         deck_id = self.deck_id()
         for word_panel in self.search_results():
-            word_panel.set_deck(deck_id)
-        self._config['deck'] = deck_id
-        mw.addonManager.writeConfig(__name__, self._config)
+            word_panel.set_deck_id(deck_id)
+        self._save_config_value('deck', deck_id)
 
     def _on_notetype_changed(self, _index):
         notetype_id = self.notetype_id()
         notetype = mw.col.models.get(notetype_id)
         for word_panel in self.search_results():
             word_panel.set_notetype(notetype)
-        self._config['notetype'] = notetype_id
-        mw.addonManager.writeConfig(__name__, self._config)
+        self._save_config_value('notetype', notetype_id)
 
     def _on_search_results_received(self, result):
         references, forms = result

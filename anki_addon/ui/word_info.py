@@ -31,7 +31,6 @@ class WordInfoPanel(QGroupBox):
         self.word_reference = word_reference
         self.word_info = None
         self.note = None
-        self._note_type = None
         self._sonaveeb = sonaveeb
 
         # Add status label
@@ -110,6 +109,7 @@ class WordInfoPanel(QGroupBox):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 
         # Request word info
+        self.set_notetype(notetype)
         self.request_word_info()
 
     def set_translation_language(self, lang):
@@ -131,6 +131,12 @@ class WordInfoPanel(QGroupBox):
 
     def set_notetype(self, notetype):
         self.notetype = notetype
+        ok = notetype is not None
+        tooltip = None if ok else 'Note type is missing!'
+        self._add_button.setEnabled(ok)
+        self._add_button.setToolTip(tooltip)
+        self._replace_button.setEnabled(ok)
+        self._replace_button.setToolTip(tooltip)
 
     def set_status(self, status):
         '''Set status message.'''
@@ -304,5 +310,5 @@ class WordInfoPanel(QGroupBox):
     def _on_translations_updated(self, lexeme_widget: LexemeWidget):
         if self._lexemes_container.get_selected_widget() is lexeme_widget:
             if len(lexeme_widget.translations) > 0:
-                self._add_button.setEnabled(True)
+                self._add_button.setEnabled(self.notetype is not None)
                 self.check_note_identical()
