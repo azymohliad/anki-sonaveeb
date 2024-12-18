@@ -156,8 +156,13 @@ class NoteTypeChanges:
 
 
 class NoteTypeManager:
-    PREFIX = 'Sõnaveeb'
-    SORT_INDEX = 1
+    # Empty field which only indicates that the note type is intended for this addon.
+    # This allows to find intended note types even if they aren't valid (for example,
+    # after some fields were added or removed upstream), and update them.
+    MARKER_FIELD = 'Sõnaveeb Marker'
+    # Sort field index
+    SORT_FIELD = 1
+    # List of fields that the note type must contain to be valid for this addon.
     FIELDS = [
         'Word ID',
         'Morphology',
@@ -166,10 +171,11 @@ class NoteTypeManager:
         'Translation',
         'Examples',
         'URL',
+        MARKER_FIELD,
     ]
 
     def __init__(self):
-        # Read default templates
+        # Read default templates' markups and style
         templates_dir = path.join(path.dirname(__file__), 'templates')
         with open(path.join(templates_dir, 'style.css'), 'r') as file:
             style = file.read()
@@ -192,13 +198,13 @@ class NoteTypeManager:
 
         # Default note types
         self.default_notetypes = {
-            f'{self.PREFIX} (bidirectional)': (
+            'Sõnaveeb (bidirectional)': (
                 templates_from_estonian | templates_into_estonian, style
             ),
-            f'{self.PREFIX} (from Estonian)': (
+            'Sõnaveeb (from Estonian)': (
                 templates_from_estonian, style
             ),
-            f'{self.PREFIX} (into Estonian)': (
+            'Sõnaveeb (into Estonian)': (
                 templates_into_estonian, style
             ),
         }
@@ -209,11 +215,16 @@ class NoteTypeManager:
         note_fields = [f['name'] for f in notetype['flds']]
         return note_fields == self.FIELDS
 
+    def is_notetype_intended(self, notetype):
+        '''Check if note type is intended for this addon.
+        '''
+        return any(f['name'] == self.MARKER_FIELD for f in notetype['flds'])
+
     def get_valid_notetypes(self) -> tp.List[NoteType]:
         '''Get a list of note types that are intended and sutiable for this addon.
         '''
         return [
-            nt for nt in self.get_intended_notetypes()
+            nt for nt in mw.col.models.all()
             if self.is_notetype_valid(nt)
         ]
 
@@ -221,13 +232,10 @@ class NoteTypeManager:
         '''Get a list of note types that are intended for this addon.
 
         Not all of them might be valid due to being outdated.
-
-        Currently they are filtered by name prefix.
         '''
         return [
-            mw.col.models.get(nt.id)
-            for nt in mw.col.models.all_names_and_ids()
-            if nt.name.startswith(self.PREFIX)
+            nt for nt in mw.col.models.all()
+            if self.is_notetype_intended(nt)
         ]
 
     def get_pending_update(self, notetype) -> NoteTypeChanges:
@@ -239,7 +247,7 @@ class NoteTypeManager:
         # For default note types: check fields, templates, and style.
         # For others: check fields only.
         templates, style = self.default_notetypes.get(notetype['name'], (None, None))
-        return NoteTypeChanges.compute(notetype, self.FIELDS, self.SORT_INDEX, templates, style)
+        return NoteTypeChanges.compute(notetype, self.FIELDS, self.SORT_FIELD, templates, style)
 
     def update_notetype(self, notetype) -> bool:
         '''Update the note type.
@@ -248,7 +256,7 @@ class NoteTypeManager:
         For custom note types this only includes fields.
         '''
         # Update fields for all note types
-        updated = update_fields(notetype, self.FIELDS, self.SORT_INDEX)
+        updated = update_fields(notetype, self.FIELDS, self.SORT_FIELD)
         # Update templates and style only for default note types
         templates_and_style = self.default_notetypes.get(notetype['name'])
         if templates_and_style is not None:
@@ -264,5 +272,5 @@ class NoteTypeManager:
         '''
         for name, (templates, style) in self.default_notetypes.items():
             if mw.col.models.by_name(name) is None:
-                add_notetype(name, self.FIELDS, self.SORT_INDEX, templates, style)
+                add_notetype(name, self.FIELDS, self.SORT_FIELD, templates, style)
 
