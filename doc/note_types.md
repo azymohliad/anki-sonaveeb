@@ -24,11 +24,22 @@ As you can probably guess, the first note type generates 2 cards per note - with
 
 If you try to edit one of these default note types, your changes will be reverted on the next launch. But if you would like to modify the default card templates, you can totally do that by creating your own note type.
 
-1. Go to "Tools -> Manage Note Types"
-2. Click "Add"
-3. Select "Clone ..." for one of Sõnaveeb default note types
-4. Choose any name
+1. Go to "Tools -> Manage Note Types" (`Ctrl+Shift+N`).
+2. Click "Add".
+3. Select "Clone ..." for one of Sõnaveeb default note types, click "OK".
+4. Choose any name and click "OK".
 
 The note type should immediately show up in the drop-down list of Sõnaveeb Deck Builder dialog. Feel free to edit cards however you want, but do not edit fields.
 
 On step 3 it's important to clone specifically a note type that is supported by this addon, so that the new note type is supported too. If you're curious, the exact mechanism of filtering note types by the addon is the presence of "Sõnaveeb Marker" field (so if for some reason you'd want to "detach" your note type from this addon later, you can simply remove this field).
+
+## Changing Note Type of the Existing Notes
+
+Note type of the existing notes can be changed in the note browser:
+
+1. In the main window select the deck and click "Browse".
+2. Select notes the type of which you want to change.
+3. Right-click and in the context menu select "Change Note Type..." (`Ctrl+Shift+M`)
+4. Select the target note type in the drop-down list in the top.
+5. Make sure field and template mappings are correct (usually they are by default).
+6. Click save.
