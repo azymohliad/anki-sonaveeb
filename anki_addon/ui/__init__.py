@@ -1,2 +1,3 @@
 from .main_window import SonaveebDialog
-from .misc import check_templates_updates
+from .notetype_updater import check_notetype_updates
+

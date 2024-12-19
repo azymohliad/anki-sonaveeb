@@ -1,0 +1,73 @@
+.card {
+    font-family: arial;
+    font-size: 20px;
+    text-align: center;
+    color: black;
+    background-color: white;
+}
+
+.morphology {
+    font-weight: bold;
+}
+
+.tags {
+    text-align: right;
+    font-style: italic;
+    color: #666;
+    margin: 10px 0;
+    font-size: 18px;
+}
+
+.nightMode .tags {
+    color: #999;
+}
+
+.rection {
+    text-align: center;
+    font-style: italic;
+    color: #555;
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.nightMode .rection {
+    color: #AAA;
+}
+
+.definition {
+    font-style: italic;
+    color: #666;
+    margin: 10px 0;
+    font-size: 18px;
+}
+
+.nightMode .definition {
+    color: #999;
+}
+
+.translation {
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.examples {
+    margin: 15px 20px;
+    font-size: 18px;
+}
+
+.examples h4 {
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.nightMode .examples h4 {
+    color: #999;
+}
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    margin-bottom: 20px;
+}
