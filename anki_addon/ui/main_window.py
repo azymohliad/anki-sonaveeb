@@ -1,7 +1,7 @@
 import anki.lang
 from aqt.qt import (
     pyqtSignal, Qt, QEvent, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
-    QPushButton, QButtonGroup, QStackedWidget, QComboBox, QScrollArea,
+    QPushButton, QButtonGroup, QStackedWidget, QScrollArea, QFrame,
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
@@ -12,6 +12,7 @@ from ..notetypes import NoteTypeManager
 from ..globals import REQUEST_TIMEOUT
 from .word_info import WordInfoPanel
 from .notetype_updater import check_notetype_updates
+from .common import VSeparator, ShrinkingComboBox
 
 
 class SonaveebDialog(QWidget):
@@ -29,22 +30,30 @@ class SonaveebDialog(QWidget):
 
         # Add header bar
         # - Add deck selector
-        self._deck_selector = QComboBox()
+        self._deck_selector = ShrinkingComboBox()
+        self._deck_selector.setMinimumWidth(100)
         self._update_decks()
         self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
-        self._deck_selector.setMinimumWidth(100)
         self._deck_selector.setPlaceholderText('None')
         deck_label = QLabel('&Deck:')
+        deck_label.setStyleSheet(f'font-size: 10pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
         deck_label.setBuddy(self._deck_selector)
+        deck_layout = QVBoxLayout()
+        deck_layout.addWidget(deck_label)
+        deck_layout.addWidget(self._deck_selector)
 
         # - Add note type selector
-        self._notetype_selector = QComboBox()
+        self._notetype_selector = ShrinkingComboBox()
+        self._notetype_selector.setMinimumWidth(100)
         self._update_notetypes()
         self._notetype_selector.currentIndexChanged.connect(self._on_notetype_changed)
-        self._notetype_selector.setMinimumWidth(100)
         self._notetype_selector.setPlaceholderText('None')
         notetype_label = QLabel('&Note Type:')
+        notetype_label.setStyleSheet(f'font-size: 10pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
         notetype_label.setBuddy(self._notetype_selector)
+        notetype_layout = QVBoxLayout()
+        notetype_layout.addWidget(notetype_label)
+        notetype_layout.addWidget(self._notetype_selector)
 
         # - Add language selector
         languages = {
@@ -54,12 +63,17 @@ class SonaveebDialog(QWidget):
         # - Fix language name typos
         languages['uk'] = 'Українська'
         languages['jbo'] = 'Lojban'
-        self._lang_selector = QComboBox()
+        self._lang_selector = ShrinkingComboBox()
+        self._lang_selector.setMinimumWidth(100)
         for code, lang in languages.items():
             self._lang_selector.addItem(lang, userData=code)
         self._lang_selector.currentIndexChanged.connect(self._on_language_changed)
         lang_label = QLabel('&Translate into:')
+        lang_label.setStyleSheet(f'font-size: 10pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
         lang_label.setBuddy(self._lang_selector)
+        lang_layout = QVBoxLayout()
+        lang_layout.addWidget(lang_label)
+        lang_layout.addWidget(self._lang_selector)
 
         # - Add mode selector
         mode_tooltip = (
@@ -69,29 +83,43 @@ class SonaveebDialog(QWidget):
             f"- {SonaveebMode.Advanced.name}: Full Sõnaveeb - comprehensive "
             "dictionary with detailed information."
         )
-        self._mode_selector = QComboBox()
+        self._mode_selector = ShrinkingComboBox()
+        self._mode_selector.setMinimumWidth(100)
         for mode in SonaveebMode:
             self._mode_selector.addItem(mode.name, userData=mode)
         self._mode_selector.currentIndexChanged.connect(self._on_mode_changed)
         self._mode_selector.setToolTip(mode_tooltip)
         mode_label = QLabel('Sõnaveeb &Mode:')
         mode_label.setToolTip(mode_tooltip)
+        mode_label.setStyleSheet(f'font-size: 10pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
         mode_label.setBuddy(self._mode_selector)
+        mode_layout = QVBoxLayout()
+        mode_layout.addWidget(mode_label)
+        mode_layout.addWidget(self._mode_selector)
 
         # - Populate header bar
         header_layout = QHBoxLayout()
-        header_layout.addWidget(deck_label)
-        header_layout.addWidget(self._deck_selector)
-        header_layout.addWidget(notetype_label)
-        header_layout.addWidget(self._notetype_selector)
+        header_layout.addLayout(deck_layout)
+        header_layout.addWidget(VSeparator(QFrame.Shadow.Sunken))
+        header_layout.addLayout(notetype_layout)
         header_layout.addStretch(1)
-        header_layout.addWidget(lang_label)
-        header_layout.addWidget(self._lang_selector)
-        header_layout.addWidget(mode_label)
-        header_layout.addWidget(self._mode_selector)
+        header_layout.addWidget(VSeparator(QFrame.Shadow.Sunken))
+        header_layout.addLayout(lang_layout)
+        header_layout.addWidget(VSeparator(QFrame.Shadow.Sunken))
+        header_layout.addLayout(mode_layout)
         header_layout.setContentsMargins(10, 5, 10, 5)
         self._header_bar = QWidget()
-        self._header_bar.setStyleSheet(f'background: {theme_manager.var(colors.CANVAS_ELEVATED)}')
+        self._header_bar.setStyleSheet(f'''
+            QWidget {{
+                background: {theme_manager.var(colors.CANVAS_ELEVATED)};
+            }}
+            QComboBox {{
+                border: 0;
+            }}
+            QComboBox::drop-down {{
+                subcontrol-position: center left;
+            }}
+        ''')
         self._header_bar.setLayout(header_layout)
 
         # Add search bar
