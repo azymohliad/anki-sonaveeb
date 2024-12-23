@@ -19,6 +19,7 @@ class SonaveebDialog(QWidget):
         super().__init__(parent=parent)
         self._notetype_manager = notetype_manager or NoteTypeManager()
         self._sonaveeb = sonaveeb or Sonaveeb()
+        self._config = mw.addonManager.getConfig(__name__)
 
         notetype_manager.create_missing_defaults()
 
@@ -192,7 +193,6 @@ class SonaveebDialog(QWidget):
         gui_hooks.theme_did_change.append(self._on_theme_changed)
 
         # Restore config
-        self._config = mw.addonManager.getConfig(__name__)
         # - Deck
         deck_id = self._config.get('deck')
         index_deck = self._deck_selector.findData(deck_id)
@@ -374,6 +374,9 @@ class SonaveebDialog(QWidget):
             idx = combobox.findText(name)
             if idx == -1:
                 combobox.addItem(name, userData=data)
+        # Select first item if none is selected
+        if combobox.currentIndex() == -1 and combobox.count() > 0:
+            combobox.setCurrentIndex(0)
 
     def _refresh_notetype_list(self):
         notetypes = self._notetype_manager.get_valid_notetypes()
@@ -447,6 +450,7 @@ class SonaveebDialog(QWidget):
                 self._notetype_manager.update_notetype(notetype)
         # Hide update button
         self._notetype_update_button.hide()
+        self._refresh_notetype_list()
 
     # QWidget overrides
     def changeEvent(self, event):

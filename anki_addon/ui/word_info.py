@@ -137,6 +137,7 @@ class WordInfoPanel(QGroupBox):
         self._add_button.setToolTip(tooltip)
         self._replace_button.setEnabled(ok)
         self._replace_button.setToolTip(tooltip)
+        self.check_note_identical()
 
     def set_status(self, status):
         '''Set status message.'''
@@ -182,10 +183,14 @@ class WordInfoPanel(QGroupBox):
         self.check_note_identical()
 
     def check_note_identical(self):
-        '''Check if existing note fully matches the current word info.
+        '''Check if existing note fully matches the current word info and selected note type.
 
         Change visibility of the replace button accordingly.
         '''
+        # TODO: Split into functions:
+        # - Check content equality - return bool
+        # - Check note type eqality - return bool
+        # - Update buttons visibility
         exists = self.note is not None
         if exists:
             if len(set(NoteTypeManager.FIELDS) - set(self.note.keys())) > 0:
@@ -195,6 +200,8 @@ class WordInfoPanel(QGroupBox):
                 # Otherwise check if all fields match
                 fields, _ = self.note_content()
                 identical = all([self.note[k] == v for k, v in fields.items()])
+                # Check if note type matches
+                identical &= self.note.mid == self.notetype.get('id')
         # Update button visibility
         self._replace_button.setVisible(exists and not identical)
 
@@ -208,8 +215,21 @@ class WordInfoPanel(QGroupBox):
     def update_note(self):
         '''Update an existing note with current data'''
         if self.note is not None:
+            # Update note content
+            # TODO: Check if note content is different
             self.fill_note(self.note)
             mw.col.update_note(self.note)
+            # Update note type if needed
+            old_ntid = self.note.mid
+            new_ntid = self.notetype.get('id')
+            if old_ntid != new_ntid:
+                info = mw.col.models.change_notetype_info(old_notetype_id=old_ntid, new_notetype_id=new_ntid)
+                request = info.input
+                print(request.note_ids)
+                request.note_ids.extend([self.note.id])
+                mw.col.models.change_notetype_of_notes(request)
+            # Re-read updated note from DB
+            self.note = mw.col.get_note(self.note.id)
 
     def delete_note(self):
         if self.note is not None:
