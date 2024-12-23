@@ -453,6 +453,12 @@ class SonaveebDialog(QWidget):
         if event.type() == QEvent.Type.ActivationChange:
             if self.isActiveWindow():
                 # Window activated
+                # On a laptop with NVMe SSD and a relatively small Anki database
+                # these checks usually take approximately 0.5 ms, while a single
+                # database query within them is usually between 0.05 to 0.15 ms.
+                # Theoretically, one note type DB query could be optimized away,
+                # and reused for _refresh_notetype_list and _check_notetypes_updates,
+                # but it's probably not worth the added complexity.
                 self._refresh_deck_list()
                 self._refresh_notetype_list()
                 self._check_notetypes_updates()
