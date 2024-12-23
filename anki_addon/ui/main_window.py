@@ -1,7 +1,7 @@
 import anki.lang
 from aqt.qt import (
     pyqtSignal, Qt, QEvent, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
-    QPushButton, QButtonGroup, QStackedWidget, QScrollArea, QFrame,
+    QPushButton, QButtonGroup, QStackedWidget, QScrollArea, QFrame, QMessageBox
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
@@ -11,7 +11,6 @@ from ..sonaveeb import Sonaveeb, SonaveebMode
 from ..notetypes import NoteTypeManager
 from ..globals import REQUEST_TIMEOUT
 from .word_info import WordInfoPanel
-from .notetype_updater import check_notetype_updates
 from .common import VSeparator, ShrinkingComboBox
 
 
@@ -22,7 +21,6 @@ class SonaveebDialog(QWidget):
         self._sonaveeb = sonaveeb or Sonaveeb()
 
         notetype_manager.create_missing_defaults()
-        check_notetype_updates(notetype_manager)
 
         self.setWindowFlag(Qt.WindowType.Window)
         self.setWindowTitle('Sõnaveeb Deck Builder')
@@ -32,7 +30,7 @@ class SonaveebDialog(QWidget):
         # - Add deck selector
         self._deck_selector = ShrinkingComboBox()
         self._deck_selector.setMinimumWidth(100)
-        self._update_decks()
+        self._refresh_deck_list()
         self._deck_selector.currentIndexChanged.connect(self._on_deck_changed)
         self._deck_selector.setPlaceholderText('None')
         deck_label = QLabel('&Deck:')
@@ -45,14 +43,21 @@ class SonaveebDialog(QWidget):
         # - Add note type selector
         self._notetype_selector = ShrinkingComboBox()
         self._notetype_selector.setMinimumWidth(100)
-        self._update_notetypes()
+        self._refresh_notetype_list()
         self._notetype_selector.currentIndexChanged.connect(self._on_notetype_changed)
         self._notetype_selector.setPlaceholderText('None')
         notetype_label = QLabel('&Note Type:')
         notetype_label.setStyleSheet(f'font-size: 10pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
         notetype_label.setBuddy(self._notetype_selector)
+        self._notetype_update_button = QPushButton('Apply Updates')
+        self._notetype_update_button.setStyleSheet('font-size: 10pt')
+        self._notetype_update_button.clicked.connect(self._apply_notetype_updates)
+        notetype_title_layout = QHBoxLayout()
+        notetype_title_layout.setContentsMargins(0, 0, 0, 0)
+        notetype_title_layout.addWidget(notetype_label)
+        notetype_title_layout.addWidget(self._notetype_update_button)
         notetype_layout = QVBoxLayout()
-        notetype_layout.addWidget(notetype_label)
+        notetype_layout.addLayout(notetype_title_layout)
         notetype_layout.addWidget(self._notetype_selector)
 
         # - Add language selector
@@ -183,6 +188,7 @@ class SonaveebDialog(QWidget):
         self._search.setFocus()
         self.set_status('Search something :)')
 
+        self._apply_notetype_updates()
         gui_hooks.theme_did_change.append(self._on_theme_changed)
 
         # Restore config
@@ -356,7 +362,7 @@ class SonaveebDialog(QWidget):
                 # The last translation request finished
                 self._lang_selector.setEnabled(True)
 
-    def _update_combobox(self, combobox, items):
+    def _refresh_combobox(self, combobox, items):
         # Remove redundant items
         for i in reversed(range(combobox.count())):
             name = combobox.itemText(i)
@@ -369,23 +375,87 @@ class SonaveebDialog(QWidget):
             if idx == -1:
                 combobox.addItem(name, userData=data)
 
-    def _update_notetypes(self):
+    def _refresh_notetype_list(self):
         notetypes = self._notetype_manager.get_valid_notetypes()
         items = [(nt['name'], nt['id']) for nt in notetypes]
-        self._update_combobox(self._notetype_selector, items)
+        self._refresh_combobox(self._notetype_selector, items)
 
-    def _update_decks(self):
+    def _refresh_deck_list(self):
         decks = mw.col.decks.all_names_and_ids()
         items = [(d.name, d.id) for d in decks]
-        self._update_combobox(self._deck_selector, items)
+        self._refresh_combobox(self._deck_selector, items)
+
+    def _check_notetypes_updates(self):
+        notetypes = self._notetype_manager.get_intended_notetypes()
+        updates = [self._notetype_manager.get_pending_update(n) for n in notetypes]
+        available = any([not u.is_empty() for u in updates])
+        self._notetype_update_button.setVisible(available)
+
+    def _apply_notetype_updates(self):
+        notetypes = self._notetype_manager.get_intended_notetypes()
+        updates = [self._notetype_manager.get_pending_update(n) for n in notetypes]
+        required = any([u.is_required() for u in updates])
+        can_or_need = 'need to' if required else 'can'
+        if any([u.is_consequential() for u in updates]):
+            # If there are consequential note type updates, ask user to confirm
+            # If all note type updates are purely additive or cosmetic,
+            # update without bothering a user
+            message = (
+                f'Sõnaveeb note types {can_or_need} be updated, but some of the '
+                'changes are consequential and require your confirmation.'
+            )
+            message += '<ol>'
+            for notetype, update in zip(notetypes, updates):
+                if update.is_empty():
+                    continue
+                message += f'<li>{notetype["name"]}:<ul>'
+                if update.fields_to_add:
+                    message += f'<li>Add fields: {", ".join(update.fields_to_add)}</li>'
+                if update.fields_to_remove:
+                    message += f'<li>Remove fields: {", ".join(update.fields_to_remove)}</li>'
+                if update.templates_to_add:
+                    message += f'<li>Add card templates: {", ".join(update.templates_to_add)}</li>'
+                if update.templates_to_remove:
+                    message += f'<li>Remove card templates: {", ".join(update.templates_to_remove)}</li>'
+                if update.templates_to_update:
+                    message += f'<li>Update card templates: {", ".join(update.templates_to_update)}</li>'
+                if update.style:
+                    message += '<li>Change style</li>'
+                if update.fields_order:
+                    message += '<li>Change fields order</li>'
+                message += '</ul></li>'
+            message += '</ol>'
+            message += (
+                '<br>'
+                'These changes may affect your collection, so it is recommended '
+                'to create a backup before applying the updates (File -> Create Backup).'
+                '<br><br>'
+                'Would you like to apply these updates now?'
+            )
+            answer = QMessageBox.question(
+                mw,
+                'Update note types?',
+                message,
+                QMessageBox.StandardButton.Yes,
+                QMessageBox.StandardButton.No
+            )
+            if answer == QMessageBox.StandardButton.No:
+                return
+        # Apply updates
+        for notetype, update in zip(notetypes, updates):
+            if not update.is_empty():
+                self._notetype_manager.update_notetype(notetype)
+        # Hide update button
+        self._notetype_update_button.hide()
 
     # QWidget overrides
     def changeEvent(self, event):
         if event.type() == QEvent.Type.ActivationChange:
             if self.isActiveWindow():
                 # Window activated
-                self._update_notetypes()
-                self._update_decks()
+                self._refresh_deck_list()
+                self._refresh_notetype_list()
+                self._check_notetypes_updates()
 
 
 class SelectorRow(QWidget):

@@ -136,16 +136,18 @@ class NoteTypeChanges:
         return self.fields_to_add or self.fields_to_remove or self.fields_order
 
     def is_consequential(self):
-        '''Check if these changes affect your collection.
+        '''Check if these changes require user confirmation.
         '''
         return (
-            self.fields_to_remove
-            or self.templates_to_remove
-            or self.templates_to_add
+            self.fields_to_remove           # Causes full DB reupload, removes data
+            or self.fields_to_add           # Causes full DB reupload
+            or self.fields_order            # Causes full DB reupload
+            or self.templates_to_remove     # Removes cards
+            or self.templates_to_add        # Adds cards
         )
 
     def is_visual(self):
-        '''Check if these changes affect how your cards look.
+        '''Check if these changes affect how cards look.
         '''
         return self.templates_to_update or self.style
 
