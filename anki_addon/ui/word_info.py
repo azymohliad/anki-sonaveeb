@@ -7,7 +7,7 @@ from aqt.operations import QueryOp
 from aqt.theme import theme_manager
 from aqt import mw, colors
 
-from .. import note_type as nt
+from ..notetypes import NoteTypeManager
 from ..globals import (
     REQUEST_TIMEOUT,
     TRANSLATIONS_LIMIT,
@@ -22,15 +22,15 @@ from .lexeme import LexemesContainer, LexemeWidget
 class WordInfoPanel(QGroupBox):
     translations_requested = pyqtSignal(bool)
 
-    def __init__(self, word_reference, sonaveeb, deck_id, lang, parent=None):
+    def __init__(self, word_reference, sonaveeb, deck_id, notetype, lang, parent=None):
         super().__init__(parent=parent)
         # Set state
         self.deck_id = deck_id
+        self.notetype = notetype
         self.lang = lang
         self.word_reference = word_reference
         self.word_info = None
         self.note = None
-        self._note_type = None
         self._sonaveeb = sonaveeb
 
         # Add status label
@@ -109,6 +109,7 @@ class WordInfoPanel(QGroupBox):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
 
         # Request word info
+        self.set_notetype(notetype)
         self.request_word_info()
 
     def set_translation_language(self, lang):
@@ -122,11 +123,21 @@ class WordInfoPanel(QGroupBox):
         self._replace_button.hide()
         self._lexemes_container.set_translation_language(lang)
 
-    def set_deck(self, deck_id):
+    def set_deck_id(self, deck_id):
         '''Set deck ID.'''
         self.deck_id = deck_id
         if self.word_info is not None:
             self.check_note_exists()
+
+    def set_notetype(self, notetype):
+        self.notetype = notetype
+        ok = notetype is not None
+        tooltip = None if ok else 'Note type is missing!'
+        self._add_button.setEnabled(ok)
+        self._add_button.setToolTip(tooltip)
+        self._replace_button.setEnabled(ok)
+        self._replace_button.setToolTip(tooltip)
+        self.check_note_identical()
 
     def set_status(self, status):
         '''Set status message.'''
@@ -172,38 +183,31 @@ class WordInfoPanel(QGroupBox):
         self.check_note_identical()
 
     def check_note_identical(self):
-        '''Check if existing note fully matches the current word info.
+        '''Check if existing note fully matches the current word info and selected note type.
 
         Change visibility of the replace button accordingly.
         '''
+        # TODO: Split into functions:
+        # - Check content equality - return bool
+        # - Check note type eqality - return bool
+        # - Update buttons visibility
         exists = self.note is not None
         if exists:
-            if len(set(nt.MODEL_FIELDS) - set(self.note.keys())) > 0:
+            if len(set(NoteTypeManager.FIELDS) - set(self.note.keys())) > 0:
                 # Notes that lack any field are considered outdated
                 identical = False
             else:
                 # Otherwise check if all fields match
                 fields, _ = self.note_content()
                 identical = all([self.note[k] == v for k, v in fields.items()])
+                # Check if note type matches
+                identical &= self.note.mid == self.notetype.get('id')
         # Update button visibility
         self._replace_button.setVisible(exists and not identical)
 
-    def get_note_type(self):
-        if self._note_type is None:
-            if (ntype := nt.find_user_note_type()) is not None:
-                nt.validate_note_type(ntype)
-                self._note_type = ntype['id']
-            elif (ntype := nt.find_default_note_type()) is not None:
-                nt.validate_note_type(ntype)
-                self._note_type = ntype['id']
-            else:
-                self._note_type = nt.add_default_note_type()
-        return self._note_type
-
     def add_note(self):
         '''Add a new note to the collection'''
-        ntype = self.get_note_type()
-        note = mw.col.new_note(ntype)
+        note = mw.col.new_note(self.notetype)
         self.fill_note(note)
         mw.col.add_note(note, self.deck_id)
         self.note = note
@@ -211,8 +215,21 @@ class WordInfoPanel(QGroupBox):
     def update_note(self):
         '''Update an existing note with current data'''
         if self.note is not None:
+            # Update note content
+            # TODO: Check if note content is different
             self.fill_note(self.note)
             mw.col.update_note(self.note)
+            # Update note type if needed
+            old_ntid = self.note.mid
+            new_ntid = self.notetype.get('id')
+            if old_ntid != new_ntid:
+                info = mw.col.models.change_notetype_info(old_notetype_id=old_ntid, new_notetype_id=new_ntid)
+                request = info.input
+                print(request.note_ids)
+                request.note_ids.extend([self.note.id])
+                mw.col.models.change_notetype_of_notes(request)
+            # Re-read updated note from DB
+            self.note = mw.col.get_note(self.note.id)
 
     def delete_note(self):
         if self.note is not None:
@@ -284,17 +301,9 @@ class WordInfoPanel(QGroupBox):
             self.set_word_info(word_info)
 
     def _on_add_button_clicked(self):
-        try:
-            self.add_note()
-        except nt.NoteTypeError as exc:
-            QMessageBox.warning(self, 'Malformed note type',
-                f'Note type "{exc.note_type["name"]}" is malformed. You can'
-                ' remove or rename it from "Tools -> Manage Note Types", and'
-                ' the default one will be recreated automatically'
-            )
-        else:
-            self._add_button.hide()
-            self._delete_button.show()
+        self.add_note()
+        self._add_button.hide()
+        self._delete_button.show()
 
     def _on_delete_button_clicked(self):
         try:
@@ -321,5 +330,5 @@ class WordInfoPanel(QGroupBox):
     def _on_translations_updated(self, lexeme_widget: LexemeWidget):
         if self._lexemes_container.get_selected_widget() is lexeme_widget:
             if len(lexeme_widget.translations) > 0:
-                self._add_button.setEnabled(True)
+                self._add_button.setEnabled(self.notetype is not None)
                 self.check_note_identical()

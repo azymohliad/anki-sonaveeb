@@ -5,7 +5,7 @@ Lexeme widget for displaying word definitions and examples
 from typing import List, Optional
 from aqt.qt import (
     Qt, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QRadioButton, QButtonGroup,
-    QSizePolicy, QFrame, pyqtSignal
+    QSizePolicy, pyqtSignal
 )
 from aqt import colors
 from aqt.theme import theme_manager
@@ -14,6 +14,7 @@ from aqt.operations import QueryOp
 from ..sonaveeb import LexemeInfo
 from ..gtranslate import cross_translate
 from ..globals import REQUEST_TIMEOUT
+from .common import HSeparator
 
 
 class LexemeWidget(QWidget):
@@ -255,10 +256,3 @@ class LexemesContainer(QWidget):
     def _on_button_toggled(self, index, checked):
         if checked:
             self.lexeme_selected.emit()
-
-
-class HSeparator(QFrame):
-    def __init__(self):
-        super().__init__()
-        self.setFrameShape(QFrame.Shape.HLine)
-        self.setFrameShadow(QFrame.Shadow.Plain)
