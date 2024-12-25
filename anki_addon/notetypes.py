@@ -8,7 +8,7 @@ Fields = tp.List[str]
 Templates = tp.Dict[str, tp.Tuple[str, str]]
 
 
-def add_notetype(name: str, fields: Fields, sort_idx: int, templates: Templates, style: str):
+def add_notetype(name: str, fields: Fields, sort_idx: int, templates: Templates, style: str, metadata: dict):
     '''Create new note type.
     '''
     models = mw.col.models
@@ -22,6 +22,8 @@ def add_notetype(name: str, fields: Fields, sort_idx: int, templates: Templates,
         forward_template['afmt'] = back
         models.add_template(notetype, forward_template)
     notetype['css'] = style
+    for k, v in metadata.items():
+        notetype[k] = v
     models.add(notetype)
     return notetype
 
@@ -158,10 +160,7 @@ class NoteTypeChanges:
 
 
 class NoteTypeManager:
-    # Empty field which only indicates that the note type is intended for this addon.
-    # This allows to find intended note types even if they aren't valid (for example,
-    # after some fields were added or removed upstream), and update them.
-    MARKER_FIELD = 'Sõnaveeb Marker'
+    SONAVEEB_MARKER = 'sonaveeb_marker'
     # Sort field index
     SORT_FIELD = 1
     # List of fields that the note type must contain to be valid for this addon.
@@ -173,7 +172,6 @@ class NoteTypeManager:
         'Translation',
         'Examples',
         'URL',
-        MARKER_FIELD,
     ]
 
     def __init__(self):
@@ -215,12 +213,12 @@ class NoteTypeManager:
         '''Check if note type is suitable for this addon.
         '''
         note_fields = [f['name'] for f in notetype['flds']]
-        return note_fields == self.FIELDS
+        return note_fields == self.FIELDS and self.is_notetype_intended(notetype)
 
     def is_notetype_intended(self, notetype):
         '''Check if note type is intended for this addon.
         '''
-        return any(f['name'] == self.MARKER_FIELD for f in notetype['flds'])
+        return self.SONAVEEB_MARKER in notetype
 
     def get_valid_notetypes(self) -> tp.List[NoteType]:
         '''Get a list of note types that are intended and sutiable for this addon.
@@ -272,7 +270,8 @@ class NoteTypeManager:
     def create_missing_defaults(self):
         '''Create default note types if needed.
         '''
+        metadata = {self.SONAVEEB_MARKER: None}
         for name, (templates, style) in self.default_notetypes.items():
             if mw.col.models.by_name(name) is None:
-                add_notetype(name, self.FIELDS, self.SORT_FIELD, templates, style)
+                add_notetype(name, self.FIELDS, self.SORT_FIELD, templates, style, metadata)
 

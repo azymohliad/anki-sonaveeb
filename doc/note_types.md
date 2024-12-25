@@ -31,7 +31,7 @@ If you try to edit one of these default note types, your changes will be reverte
 
 The note type should immediately show up in the drop-down list of Sõnaveeb Deck Builder dialog. Feel free to edit cards however you want, but do not edit fields.
 
-On step 3 it's important to clone specifically a note type that is supported by this addon, so that the new note type is supported too. If you're curious, the exact mechanism of filtering note types by the addon is the presence of "Sõnaveeb Marker" field (so if for some reason you'd want to "detach" your note type from this addon later, you can simply remove this field).
+On step 3 it's important to clone specifically a note type that is supported by this addon, so that the new note type is supported too.
 
 ## Changing Note Type of the Existing Notes
 
