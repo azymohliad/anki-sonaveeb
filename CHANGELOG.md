@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.0 - 2024-12-26
+
+- Added multiple default note types to select from.
+- Added support for custom user-created note types.
+
 ## v0.7.1 - 2024-12-17
 
 - Disabled Sõnaveeb Deck Builder autolaunch at Anki startup, which was enabled for debugging and accidentally leaked into a release.
