@@ -32,7 +32,15 @@ From Anki main menu select "Tools -> Add-ons -> Get Add-ons...", paste code `100
 
 ## Usage
 
-From Anki main menu select "Tools -> Sõnaveeb Deck Builder". On the toolbar, select your preferred language and the deck to add notes/cards to. Search words, and click "Add note" to add them to your study deck. If notes don't appear in your deck immediately you can restart Anki or run "Tools -> Check Database".
+From Anki main menu select "Tools -> Sõnaveeb Deck Builder". Set your preferred settings on the toolbar. Search words, and click "Add" to add them to your collection.
+
+The toolbar contains the following settings:
+- Deck to add your Sõnaveeb cards into.
+- Note type. Out of the box it allows you to select between generating cards with translations from your language to Estonian, or from Estonian to your language, or both. But with custom note types you can have full control over which cards to generate and how they look, see more about it [here](doc/note_types.md).
+- Translation language.
+- Sõnaveeb Mode:
+    - "Lite" gets the data from [Keeleõppija Sõnaveeb](https://sonaveeb.ee/lite). It has simpler definitions and examples, fewer lexemes, and is recommended for language learners.
+    - "Advanced" gets the data from regular [Sõnaveeb](https://sonaveeb.ee/).
 
 For more information about general Anki usage please refer to [Anki documentation](https://docs.ankiweb.net/).
 
