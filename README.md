@@ -8,7 +8,7 @@ Simply type an Estonian word in any form, and generate a flashcard containing it
 
 Dictionary data is obtained from [Sõnaveeb](https://sonaveeb.ee/), with fallback to [Google Translate](https://translate.google.com) for missing translations.
 
-![screenshot](https://github.com/user-attachments/assets/beb1ce2b-d3e6-4752-9288-01e7b6db0c75)
+![screenshot](https://github.com/user-attachments/assets/77148f1e-c1bf-40a0-8642-ef7742d40578)
 
 ### About Anki
 

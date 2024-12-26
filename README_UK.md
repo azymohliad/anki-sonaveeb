@@ -8,7 +8,7 @@
 
 Словникові дані забезпечуються платформою [Sõnaveeb](https://sonaveeb.ee/). А за відсутності перекладу на обрану мову, використовується [Google Translate](https://translate.google.com), як запасний варіант.
 
-![screenshot](https://github.com/user-attachments/assets/beb1ce2b-d3e6-4752-9288-01e7b6db0c75)
+![screenshot](https://github.com/user-attachments/assets/77148f1e-c1bf-40a0-8642-ef7742d40578)
 
 ### Про Anki
 
