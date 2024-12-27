@@ -177,15 +177,15 @@ class NoteTypeManager:
     def __init__(self):
         # Read default templates' markups and style
         templates_dir = path.join(path.dirname(__file__), 'templates')
-        with open(path.join(templates_dir, 'style.css'), 'r') as file:
+        with open(path.join(templates_dir, 'style.css'), 'r', encoding='utf-8') as file:
             style = file.read()
-        with open(path.join(templates_dir, 'into_estonian_front.html'), 'r') as file:
+        with open(path.join(templates_dir, 'into_estonian_front.html'), 'r', encoding='utf-8') as file:
             markup_into_estonian_front = file.read()
-        with open(path.join(templates_dir, 'into_estonian_back.html'), 'r') as file:
+        with open(path.join(templates_dir, 'into_estonian_back.html'), 'r', encoding='utf-8') as file:
             markup_into_estonian_back = file.read()
-        with open(path.join(templates_dir, 'from_estonian_front.html'), 'r') as file:
+        with open(path.join(templates_dir, 'from_estonian_front.html'), 'r', encoding='utf-8') as file:
             markup_from_estonian_front = file.read()
-        with open(path.join(templates_dir, 'from_estonian_back.html'), 'r') as file:
+        with open(path.join(templates_dir, 'from_estonian_back.html'), 'r', encoding='utf-8') as file:
             markup_from_estonian_back = file.read()
 
         # Default card templates
