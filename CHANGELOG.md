@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.1 - 2024-12-27
+
+- Fixed crash on startup for platforms where UTF-8 is not a default file encoding.
+
 ## v0.8.0 - 2024-12-26
 
 - Added multiple default note types to select from.
