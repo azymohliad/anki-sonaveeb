@@ -1,4 +1,4 @@
-from aqt.qt import QFrame, QComboBox, QFontMetrics, QSize, Qt, QSizePolicy, QStyle, QStyleOptionComboBox
+from aqt.qt import QFrame, QComboBox, QFontMetrics, Qt, QSizePolicy, QStyle, QStyleOptionComboBox
 
 
 class HSeparator(QFrame):
