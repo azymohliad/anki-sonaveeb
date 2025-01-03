@@ -115,15 +115,29 @@ class SonaveebDialog(QWidget):
         header_layout.addLayout(mode_layout)
         header_layout.setContentsMargins(10, 5, 10, 5)
         self._header_bar = QWidget()
+        # CSS properties marked with "Native theme" comment simply duplicate
+        # Anki theme values (qt/aqt/stylesheets.py) necessary to fix some issues
+        # with the native theme.
         self._header_bar.setStyleSheet(f'''
             QWidget {{
                 background: {theme_manager.var(colors.CANVAS_ELEVATED)};
             }}
             QComboBox {{
-                border: 0;
+                border: none;
+                /* Native theme: fix spacing between drop-down arrow and the list */
+                padding-left: 6px;
             }}
             QComboBox::drop-down {{
                 subcontrol-position: center left;
+                /* Native theme: disable button shadows */
+                border-style: solid;
+            }}
+            /* Native theme: replace drop-down icon, otherwise it becomes invisible with disabled border */
+            QComboBox::down-arrow {{
+                image: url({theme_manager.themed_icon("mdi:chevron-down")});
+            }}
+            QComboBox::down-arrow:disabled {{
+                image: url({theme_manager.themed_icon("mdi:chevron-down-FG_DISABLED")});
             }}
         ''')
         self._header_bar.setLayout(header_layout)

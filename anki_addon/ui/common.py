@@ -1,4 +1,4 @@
-from aqt.qt import QFrame, QComboBox, QFontMetrics, QSize, Qt, QSizePolicy
+from aqt.qt import QFrame, QComboBox, Qt, QSizePolicy, QStyle, QStyleOptionComboBox
 
 
 class HSeparator(QFrame):
@@ -25,10 +25,29 @@ class ShrinkingComboBox(QComboBox):
 
     def sizeHint(self):
         text = self.currentText()
-        metrics = QFontMetrics(self.view().font())
-        width = metrics.size(Qt.TextFlag.TextSingleLine, text).width()
-        width += 40 # TODO: Add correct drop-down button width
-        return QSize(width, super().sizeHint().height())
+        metrics = self.fontMetrics()
+        text_size = metrics.size(Qt.TextFlag.TextSingleLine, text)
+        style_opt = QStyleOptionComboBox()
+        self.initStyleOption(style_opt)
+        size = self.style().sizeFromContents(
+            QStyle.ContentsType.CT_ComboBox,
+            style_opt,
+            text_size,
+            self
+        )
+        return size
 
     def minimumSizeHint(self):
         return self.sizeHint()
+
+    def showPopup(self):
+        # Make sure the drop-down list is wide enough to fit all items
+        # (this seems unnecessary on Linux, but is needed on MacOS)
+        metrics = self.fontMetrics()
+        widths = [
+            metrics.horizontalAdvance(self.itemText(i))
+            for i in range(self.count())
+        ]
+        widths.append(self.width())
+        self.view().setMinimumWidth(max(widths))
+        super().showPopup()
