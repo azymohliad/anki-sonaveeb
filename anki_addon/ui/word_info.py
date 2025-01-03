@@ -1,7 +1,7 @@
 import anki.errors
 from aqt.qt import (
     Qt, QSizePolicy, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QStackedWidget,QGroupBox, QMessageBox, pyqtSignal
+    QStackedWidget, QGroupBox, QMessageBox, pyqtSignal
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
@@ -17,6 +17,8 @@ from ..globals import (
 
 
 from .lexeme import LexemesContainer, LexemeWidget
+from ..audio import Audio
+from .audio_control import AudioControl
 
 
 class WordInfoPanel(QGroupBox):
@@ -77,11 +79,15 @@ class WordInfoPanel(QGroupBox):
         data_layout.addWidget(self._morphology_label)
         data_layout.addWidget(self._class_label)
 
+        # Add audio buttons
+        self._audio_button_layout = QHBoxLayout()
+
         buttons_layout = QVBoxLayout()
         buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         buttons_layout.addWidget(self._add_button)
         buttons_layout.addWidget(self._delete_button)
         buttons_layout.addWidget(self._replace_button)
+        buttons_layout.addLayout(self._audio_button_layout)
 
         header_layout = QHBoxLayout()
         header_layout.addLayout(data_layout)
@@ -111,6 +117,16 @@ class WordInfoPanel(QGroupBox):
         # Request word info
         self.set_notetype(notetype)
         self.request_word_info()
+
+        # Initialize audio handler
+        self.audio = Audio(
+            base_url=sonaveeb.BASE_URL,
+            request_timeout=REQUEST_TIMEOUT
+        )
+
+        # Initialize audio UI
+        self.audio_control = AudioControl(self.audio)
+        self._audio_button_layout.addWidget(self.audio_control)
 
     def set_translation_language(self, lang):
         '''Set translation language.
@@ -159,6 +175,14 @@ class WordInfoPanel(QGroupBox):
         # Update buttons state
         self.check_note_exists()
 
+        # Update audio UI state
+        self.audio_control.update_state(
+            urls=data.audio_urls,
+            word=data.word,
+            word_id=data.word_id,
+            note=self.note
+        )
+
     def check_note_exists(self):
         '''Check if note for the current word exists.
 
@@ -181,6 +205,20 @@ class WordInfoPanel(QGroupBox):
         self._add_button.setVisible(not exists)
         self._delete_button.setVisible(exists)
         self.check_note_identical()
+        self.check_note_audio()
+
+    def check_note_audio(self):
+        '''Update audio UI state'''
+        urls = self.word_info.audio_urls if self.word_info else []
+        word = self.word_info.word if self.word_info else ""
+        word_id = self.word_info.word_id if self.word_info else 0
+
+        self.audio_control.update_state(
+            urls=urls,
+            word=word,
+            word_id=word_id,
+            note=self.note
+        )
 
     def check_note_identical(self):
         '''Check if existing note fully matches the current word info and selected note type.
@@ -304,6 +342,13 @@ class WordInfoPanel(QGroupBox):
         self.add_note()
         self._add_button.hide()
         self._delete_button.show()
+        # Update audio UI state after adding note
+        self.audio_control.update_state(
+            urls=self.word_info.audio_urls if self.word_info else [],
+            word=self.word_info.word if self.word_info else "",
+            word_id=self.word_info.word_id if self.word_info else 0,
+            note=self.note
+        )
 
     def _on_delete_button_clicked(self):
         try:

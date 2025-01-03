@@ -7,6 +7,8 @@ import dataclasses as dc
 import requests
 import bs4
 
+from .globals import AUDIO_LIMIT
+
 
 class SonaveebMode(enum.Enum):
     Lite = 0
@@ -33,6 +35,7 @@ class WordInfo:
     url: str = None
     lexemes: tp.List[LexemeInfo] = None
     morphology: tp.List[tp.Tuple[str]] = None
+    audio_urls: tp.List[str] = dc.field(default_factory=list)
 
     def summary(self, lang=None):
         data = {
@@ -314,6 +317,34 @@ class Sonaveeb:
             return lexeme_number.string
         return str(fallback_number)
 
+    def _parse_audio_urls(self, dom_to_parse) -> tp.List[str]:
+        '''Parse all unique audio URLs from the DOM.
+
+        Args:
+            dom_to_parse: BeautifulSoup DOM element to parse
+
+        Returns:
+            List of unique audio URLs, with main pronunciation first if available,
+            followed by additional pronunciations up to AUDIO_LIMIT total
+        '''
+        audio_urls = []
+
+        # First try to get the main pronunciation button from the title
+        if main_button := dom_to_parse.find('div', class_='content-title').find('button', class_='btn-speaker'):
+            if audio_url := main_button.get('data-url-to-audio'):
+                audio_urls.append(self.BASE_URL + audio_url)
+
+        # Get additional pronunciations up to AUDIO_LIMIT total
+        for button in dom_to_parse.find_all('button', class_='btn-speaker'):
+            if len(audio_urls) >= AUDIO_LIMIT:
+                break
+            if audio_url := button.get('data-url-to-audio'):
+                full_url = self.BASE_URL + audio_url
+                if full_url not in audio_urls:  # Avoid duplicates
+                    audio_urls.append(full_url)
+
+        return audio_urls
+
     def _parse_word_info(self, dom):
         info = WordInfo()
 
@@ -386,6 +417,9 @@ class Sonaveeb:
                         entry = tuple(self._remove_eki_tags(c) for c in cells)
                         info.morphology.append(entry)
 
+        # Parse audio URLs using the new helper method
+        info.audio_urls = self._parse_audio_urls(dom_to_parse)
+
         return info
 
     @staticmethod
@@ -402,3 +436,17 @@ class Sonaveeb:
             result = result.replace(f'</{tag}>', '')
 
         return result.strip()
+
+    def get_audio_urls(self, word_id, timeout=None):
+        '''Get URLs of the pronunciation audio files.
+
+        Args:
+            word_id: The word ID to get audio for
+            timeout: Request timeout in seconds
+
+        Returns:
+            List of unique audio file URLs found on the page
+        '''
+        self._ensure_session(timeout=timeout)
+        dom = self._word_details_dom(word_id, timeout=timeout)
+        return self._parse_audio_urls(dom)
