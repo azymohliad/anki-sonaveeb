@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.2 - 2025-01-03
+
+- Fixed UI regressions on MacOS and native theme on other platforms.
+
 ## v0.8.1 - 2024-12-27
 
 - Fixed crash on startup for platforms where UTF-8 is not a default file encoding.
