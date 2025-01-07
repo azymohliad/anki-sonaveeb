@@ -101,7 +101,7 @@ class Sonaveeb:
         ),
         SonaveebMode.Advanced: LookupUrls(
             forms='https://sonaveeb.ee/searchwordfrag/unif/{word}',
-            search='https://sonaveeb.ee/search/unif/dlall/dsall/{word}',
+            search='https://sonaveeb.ee/search/unif/dlall/eki/{word}',
             details='https://sonaveeb.ee/worddetails/unif/{word_id}'
         )
     }
