@@ -81,10 +81,9 @@ class AudioControl(QWidget):
         self.play_button.setEnabled(False)
 
         try:
-            success = self.audio.play(
-                note_audio=self.note["Audio"] if self.note else None,
-                urls=self.urls
-            )
+            success = False
+            if self.urls:
+                success = self.audio.play(self.urls[0])
             if not success:
                 QMessageBox.warning(self, 'No Audio', 'No audio files available')
         finally:
@@ -101,11 +100,11 @@ class AudioControl(QWidget):
         self.download_button.setText('Downloading...')
 
         try:
-            success = self.audio.download_and_attach_audio(
+            success = self.audio.save(
+                note=self.note,
                 urls=self.urls,
                 word=self.word,
                 word_id=self.word_id,
-                note=self.note
             )
             self.download_button.setText('Audio Added' if success else 'Download Failed')
             if success:
