@@ -33,6 +33,7 @@ class WordInfo:
     url: str = None
     lexemes: tp.List[LexemeInfo] = None
     morphology: tp.List[tp.Tuple[str]] = None
+    audio_urls: tp.List[str] = dc.field(default_factory=list)
 
     def summary(self, lang=None):
         data = {
@@ -386,7 +387,43 @@ class Sonaveeb:
                         entry = tuple(self._remove_eki_tags(c) for c in cells)
                         info.morphology.append(entry)
 
+        # Get audio URLs, prioritizing morphological forms
+        morphology_audio = self._parse_morphology_audio_urls(dom_to_parse)
+        info.audio_urls = morphology_audio if morphology_audio else self._parse_audio_urls(dom_to_parse)
+
         return info
+
+    def _parse_morphology_audio_urls(self, dom_to_parse) -> tp.List[str]:
+        '''Parse audio URLs from the morphology paradigm section.
+
+        Args:
+            dom_to_parse: BeautifulSoup DOM element to parse
+
+        Returns:
+            List of audio URLs for different morphological forms. Empty list if none found.
+        '''
+        audio_urls = []
+        if morph := dom_to_parse.find(class_='morphology-paradigm'):
+            for button in morph.find_all('button', class_='btn-speaker'):
+                if audio_url := button.get('data-url-to-audio'):
+                    full_url = self.BASE_URL + audio_url
+                    if full_url not in audio_urls:
+                        audio_urls.append(full_url)
+        return audio_urls
+
+    def _parse_audio_urls(self, dom_to_parse) -> tp.List[str]:
+        '''Parse the main pronunciation audio URL from the content title.
+
+        Args:
+            dom_to_parse: BeautifulSoup DOM element to parse
+
+        Returns:
+            List containing the main audio URL. Empty list if none found.
+        '''
+        main_button = dom_to_parse.find('div', class_='content-title').find('button', class_='btn-speaker')
+        if main_button and (audio_url := main_button.get('data-url-to-audio')):
+            return [self.BASE_URL + audio_url]
+        return []
 
     @staticmethod
     def _remove_eki_tags(element):

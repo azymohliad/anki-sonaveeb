@@ -172,6 +172,7 @@ class NoteTypeManager:
         'Translation',
         'Examples',
         'URL',
+        'Audio',
     ]
 
     def __init__(self):
