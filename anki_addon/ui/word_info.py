@@ -119,10 +119,7 @@ class WordInfoPanel(QGroupBox):
         self.request_word_info()
 
         # Initialize audio handler
-        self.audio = AudioManager(
-            base_url=sonaveeb.BASE_URL,
-            request_timeout=REQUEST_TIMEOUT
-        )
+        self.audio = AudioManager(request_timeout=REQUEST_TIMEOUT)
 
         # Initialize audio UI
         self.audio_control = AudioControl(self.audio)
