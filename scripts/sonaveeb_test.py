@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import pprint
 
 ADDON_PATH = os.path.join(os.path.dirname(__file__), os.pardir, 'anki_addon')
 sys.path.append(ADDON_PATH)
@@ -24,5 +25,4 @@ if __name__ == '__main__':
     sv = Sonaveeb()
     sv.set_mode(SonaveebMode[args.mode])
     info = sv.get_word_info(args.word, debug=args.debug)
-    print(info.summary(lang=args.lang))
-
+    pprint.pp(info)

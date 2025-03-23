@@ -162,7 +162,7 @@ class WordInfoPanel(QGroupBox):
         self.word_info = data
         # Update content
         self._title_label.setText(f'<a href="{data.url}"><h3>{data.word}</h3></a>')
-        self._morphology_label.setText(f'**Forms**: {data.short_record()}')
+        self._morphology_label.setText(f'**Forms**: {data.essential_forms(compress=True, join=True)}')
         self._class_label.setText(f'**Class**: {data.word_class}')
         self._class_label.setVisible(data.word_class is not None)
         self._lexemes_container.set_data(data.lexemes, data.word_class)
@@ -174,7 +174,7 @@ class WordInfoPanel(QGroupBox):
 
         # Update audio UI state
         self.audio_control.update_state(
-            urls=data.audio_urls,
+            urls=data.audio_urls(),
             word=data.word,
             word_id=data.word_id,
             note=self.note
@@ -206,8 +206,8 @@ class WordInfoPanel(QGroupBox):
 
     def check_note_audio(self):
         '''Update audio UI state'''
-        urls = self.word_info.audio_urls if self.word_info else []
-        word = self.word_info.word if self.word_info else ""
+        urls = self.word_info.audio_urls() if self.word_info else []
+        word = self.word_info.word if self.word_info else ''
         word_id = self.word_info.word_id if self.word_info else 0
 
         self.audio_control.update_state(
@@ -291,7 +291,7 @@ class WordInfoPanel(QGroupBox):
         # Populate fields
         fields = {
             'Word ID': self.word_info.word_id,
-            'Morphology': self.word_info.short_record(),
+            'Morphology': self.word_info.essential_forms(compress=True, join=True),
             'URL': self.word_info.url,
             'Translation': ', '.join(lexeme_widget.translations),
             'Definition': lexeme.definition or '',
@@ -341,8 +341,8 @@ class WordInfoPanel(QGroupBox):
         self._delete_button.show()
         # Update audio UI state after adding note
         self.audio_control.update_state(
-            urls=self.word_info.audio_urls if self.word_info else [],
-            word=self.word_info.word if self.word_info else "",
+            urls=self.word_info.audio_urls() if self.word_info else [],
+            word=self.word_info.word if self.word_info else '',
             word_id=self.word_info.word_id if self.word_info else 0,
             note=self.note
         )
