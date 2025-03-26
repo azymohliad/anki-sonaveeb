@@ -88,7 +88,7 @@ class WordInfo:
             urls = [self.word_audio_url]
         return urls
 
-    def essential_forms(self, compress=False, join=False) -> tp.List[str] | str:
+    def essential_forms(self, compress=False, join=False) -> tp.Union[tp.List[str], str]:
         '''Returns a list of essential to study forms of this word.
 
         Args:
