@@ -68,35 +68,23 @@ class AudioManager:
             logging.debug(f'Cache updated: {cached_path} (temporary: {is_temporary})')
         return cached_path
 
-    def save(self, note, urls: List[str], word: str, word_id: int) -> bool:
-        '''Download audio files and attach them to the note.'''
+    def save(self, urls: List[str], word: str, word_id: int) -> List[str]:
+        '''Downloads audio files into Anki media directory.
+
+        Returns a list of audio refs in a format suitable for a note field.
+        '''
         audio_refs = []
         for i, url in enumerate(urls, 1):
-            try:
-                filename = f'sonaveeb_{word}_{word_id}_{i}.mp3'
-                filepath = Path(mw.col.media.dir()) / filename
-                self.get_audio_file(url, filepath)
-                audio_refs.append(f'[sound:{filename}]')
-            except requests.RequestException:
-                logging.error(f'Unable to download audio file: {url}')
-            except OSError:
-                logging.error('Unable to add audio file to a note')
+            filename = f'sonaveeb_{word}_{word_id}_{i}.mp3'
+            filepath = Path(mw.col.media.dir()) / filename
+            self.get_audio_file(url, filepath)
+            audio_refs.append(f'[sound:{filename}]')
+        return audio_refs
 
-        if audio_refs:
-            note['Audio'] = ' '.join(audio_refs)
-            mw.col.update_note(note)
-            return True
-
-        return False
-
-    def play(self, url: str) -> bool:
-        '''Play audio from note or download and play from URL.'''
-        try:
-            temp_file = self.get_audio_file(url)
-            av_player.play_file(str(temp_file))
-            return True
-        except requests.RequestException:
-            return False
+    def play(self, url: str):
+        '''Downloads if needed and plays audio from URL.'''
+        temp_file = self.get_audio_file(url)
+        av_player.play_file(str(temp_file))
 
     def cleanup(self):
         '''Clear download cache and remove all temporary files.'''
