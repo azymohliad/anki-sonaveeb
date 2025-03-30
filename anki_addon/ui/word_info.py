@@ -150,6 +150,7 @@ class WordInfoPanel(QGroupBox):
 
     def set_save_audio(self, save_audio: bool):
         self._save_audio = save_audio
+        self.refresh_buttons()
 
     def set_status(self, status):
         '''Set status message.'''
@@ -252,6 +253,9 @@ class WordInfoPanel(QGroupBox):
             for k, v in fields.items()
             if k not in skip_fields
         ])
+
+        # Check audio presence only
+        identical &= bool(self.note['Audio']) == self._save_audio
         return identical
 
     def is_note_type_uptodate(self):
@@ -273,12 +277,17 @@ class WordInfoPanel(QGroupBox):
         else:
             self.refresh_buttons()
 
-    def update_note(self, update_audio=False):
+    def update_note(self):
         '''Update an existing note with current data'''
         if self.note is not None:
             # Update note content
             # TODO: Check if note content is different
             self.fill_note(self.note)
+            if not self._save_audio:
+                # TODO: Should audio files be manually removed?
+                # What if another note from another deck refers
+                # to the same audio files?
+                self.note['Audio'] = ''
             mw.col.update_note(self.note)
             # Update note type if needed
             old_ntid = self.note.mid
@@ -291,8 +300,8 @@ class WordInfoPanel(QGroupBox):
                 mw.col.models.change_notetype_of_notes(request)
             # Re-read updated note from DB
             self.note = mw.col.get_note(self.note.id)
-            # Re-download audio
-            if update_audio and self._save_audio:
+            # Download audio if needed but missing
+            if self._save_audio and not self.note['Audio']:
                 self.save_audio_to_note()
             else:
                 self.refresh_buttons()
@@ -329,7 +338,7 @@ class WordInfoPanel(QGroupBox):
             'Translation': ', '.join(lexeme_widget.translations),
             'Definition': lexeme.definition or '',
             'Examples': '<br>'.join(lexeme.examples[:EXAMPLES_LIMIT]),
-            'Rection': ', '.join(lexeme.rection)
+            'Rection': ', '.join(lexeme.rection),
         }
         # Populate tags
         tags = []
@@ -420,11 +429,7 @@ class WordInfoPanel(QGroupBox):
 
     def _on_replace_button_clicked(self):
         try:
-            # TODO: Should it be updating audio?
-            # It's often unnecessary (e.g. when translation or note type
-            # is changed by the user), and it's easy to force by deleting
-            # and adding a note again.
-            self.update_note(update_audio=False)
+            self.update_note()
         except anki.errors.NotFoundError as e:
             QMessageBox.warning(self, 'Failed to update the note', str(e))
 
