@@ -34,7 +34,7 @@ class WordInfoPanel(QGroupBox):
         self.word_info = None
         self.note = None
         self._sonaveeb = sonaveeb
-        self._save_audio = False
+        self._audio_enabled = False
         self._audio_download_in_progress = False
 
         # Add status label
@@ -152,8 +152,8 @@ class WordInfoPanel(QGroupBox):
         self.notetype = notetype
         self.refresh_buttons()
 
-    def set_save_audio(self, save_audio: bool):
-        self._save_audio = save_audio
+    def set_audio_enabled(self, enabled: bool):
+        self._audio_enabled = enabled
         self.refresh_buttons()
 
     def set_status(self, status):
@@ -196,8 +196,8 @@ class WordInfoPanel(QGroupBox):
 
     def refresh_buttons(self):
         note_exists = self.note is not None
-        note_updated = self.is_note_content_uptodate()
-        note_updated &= self.is_note_type_uptodate()
+        note_updated = self.is_note_content_updated()
+        note_updated &= self.is_note_type_updated()
         notetype_ok = self.notetype is not None
 
         if self.word_info is not None:
@@ -239,7 +239,7 @@ class WordInfoPanel(QGroupBox):
         self._add_button.setToolTip(tooltip)
         self._replace_button.setToolTip(tooltip)
 
-    def is_note_content_uptodate(self):
+    def is_note_content_updated(self):
         '''Check if existing note matches the current word info.'''
         # Missing notes are outdated
         if self.note is None:
@@ -259,10 +259,10 @@ class WordInfoPanel(QGroupBox):
         ])
 
         # Check audio presence only
-        identical &= bool(self.note['Audio']) == self._save_audio
+        identical &= bool(self.note['Audio']) == self._audio_enabled
         return identical
 
-    def is_note_type_uptodate(self):
+    def is_note_type_updated(self):
         '''Check if existing note is of the selected note type.'''
         # Missing notes are outdated
         if self.note is None:
@@ -276,8 +276,8 @@ class WordInfoPanel(QGroupBox):
         self.fill_note(note)
         mw.col.add_note(note, self.deck_id)
         self.note = note
-        if self._save_audio:
-            self.save_audio_to_note()
+        if self._audio_enabled:
+            self.save_audio()
         else:
             self.refresh_buttons()
 
@@ -287,7 +287,7 @@ class WordInfoPanel(QGroupBox):
             # Update note content
             # TODO: Check if note content is different
             self.fill_note(self.note)
-            if not self._save_audio:
+            if not self._audio_enabled:
                 # TODO: Should audio files be manually removed?
                 # What if another note from another deck refers
                 # to the same audio files?
@@ -305,8 +305,8 @@ class WordInfoPanel(QGroupBox):
             # Re-read updated note from DB
             self.note = mw.col.get_note(self.note.id)
             # Download audio if needed but missing
-            if self._save_audio and not self.note['Audio']:
-                self.save_audio_to_note()
+            if self._audio_enabled and not self.note['Audio']:
+                self.save_audio()
             else:
                 self.refresh_buttons()
 
@@ -363,7 +363,7 @@ class WordInfoPanel(QGroupBox):
         ).failure(self._on_word_request_error)
         operation.run_in_background()
 
-    def save_audio_to_note(self):
+    def save_audio(self):
         self._buttons_status_label.setText('Downloading audio...')
         self._buttons_status_label.show()
         self._audio_download_in_progress = True
@@ -375,7 +375,7 @@ class WordInfoPanel(QGroupBox):
                 self.word_info.word,
                 self.word_info.word_id
             ),
-            success=self._on_audio_refs_received
+            success=self._on_audio_received
         ).failure(self._on_save_audio_error)
         operation.run_in_background()
 
@@ -404,13 +404,13 @@ class WordInfoPanel(QGroupBox):
         logging.error(f'Failed to save audio: {error}')
         QMessageBox.warning(self, 'Oops...', f'Failed to save pronunciation audio.')
 
-    def _on_audio_refs_received(self, audio_refs):
+    def _on_audio_received(self, audio_refs):
         self._audio_download_in_progress = False
         self._buttons_status_label.hide()
-        self.refresh_buttons()
         if self.note is not None:
             self.note['Audio'] = ' '.join(audio_refs)
             mw.col.update_note(self.note)
+        self.refresh_buttons()
 
     def _on_pronounce_button_clicked(self):
         self._pronounce_button.setEnabled(False)

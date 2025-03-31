@@ -107,7 +107,7 @@ class SonaveebDialog(QWidget):
         # - Add audio checkbox
         audio_tooltip = 'Save pronunciation audio into the notes'
         self._audio_checkbox = QCheckBox()
-        self._audio_checkbox.toggled.connect(self._on_save_audio_changed)
+        self._audio_checkbox.toggled.connect(self._on_audio_enabled_changed)
         self._audio_checkbox.setToolTip(audio_tooltip)
         audio_label = QLabel('&Audio:')
         audio_label.setToolTip(audio_tooltip)
@@ -265,7 +265,7 @@ class SonaveebDialog(QWidget):
     def sonaveeb_mode(self):
         return self._mode_selector.currentData()
 
-    def save_audio(self):
+    def audio_enabled(self):
         return self._audio_checkbox.isChecked()
 
     def search_results(self):
@@ -351,10 +351,10 @@ class SonaveebDialog(QWidget):
             word_panel.set_notetype(notetype)
         self._save_config_value('notetype', notetype_id)
 
-    def _on_save_audio_changed(self, save_audio):
+    def _on_audio_enabled_changed(self, enabled):
         for word_panel in self.search_results():
-            word_panel.set_save_audio(save_audio)
-        self._save_config_value('save_audio', save_audio)
+            word_panel.set_audio_enabled(enabled)
+        self._save_config_value('save_audio', enabled)
 
     def _on_search_results_received(self, result):
         references, forms = result
@@ -380,7 +380,7 @@ class SonaveebDialog(QWidget):
             notetype = mw.col.models.get(self.notetype_id())
             for reference in references:
                 word_panel = WordInfoPanel(reference, self._sonaveeb, self.deck_id(), notetype, self.language_code())
-                word_panel.set_save_audio(self.save_audio())
+                word_panel.set_audio_enabled(self.audio_enabled())
                 word_panel.translations_requested.connect(self._on_word_translation_requested)
                 self._search_results_layout.addWidget(word_panel)
 
