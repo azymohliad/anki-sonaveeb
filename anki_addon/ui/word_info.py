@@ -83,6 +83,9 @@ class WordInfoPanel(QGroupBox):
         self._replace_button.setFixedWidth(100)
         self._replace_button.hide()
         self._replace_button.clicked.connect(self._on_replace_button_clicked)
+        self._buttons_status_label = QLabel()
+        self._buttons_status_label.setStyleSheet(f'color: {theme_manager.var(colors.FG_SUBTLE)}')
+        self._buttons_status_label.hide()
 
         data_layout = QVBoxLayout()
         data_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -91,10 +94,11 @@ class WordInfoPanel(QGroupBox):
         data_layout.addWidget(self._class_label)
 
         buttons_layout = QVBoxLayout()
-        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        buttons_layout.addWidget(self._add_button)
-        buttons_layout.addWidget(self._delete_button)
-        buttons_layout.addWidget(self._replace_button)
+        buttons_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        buttons_layout.addWidget(self._add_button, 0, Qt.AlignmentFlag.AlignRight)
+        buttons_layout.addWidget(self._delete_button, 0, Qt.AlignmentFlag.AlignRight)
+        buttons_layout.addWidget(self._replace_button, 0, Qt.AlignmentFlag.AlignRight)
+        buttons_layout.addWidget(self._buttons_status_label, 0, Qt.AlignmentFlag.AlignRight)
 
         header_layout = QHBoxLayout()
         header_layout.addLayout(data_layout)
@@ -360,6 +364,8 @@ class WordInfoPanel(QGroupBox):
         operation.run_in_background()
 
     def save_audio_to_note(self):
+        self._buttons_status_label.setText('Downloading audio...')
+        self._buttons_status_label.show()
         self._audio_download_in_progress = True
         self.refresh_buttons()
         operation = QueryOp(
@@ -393,12 +399,14 @@ class WordInfoPanel(QGroupBox):
 
     def _on_save_audio_error(self, error):
         self._audio_download_in_progress = False
+        self._buttons_status_label.hide()
         self.refresh_buttons()
         logging.error(f'Failed to save audio: {error}')
         QMessageBox.warning(self, 'Oops...', f'Failed to save pronunciation audio.')
 
     def _on_audio_refs_received(self, audio_refs):
         self._audio_download_in_progress = False
+        self._buttons_status_label.hide()
         self.refresh_buttons()
         if self.note is not None:
             self.note['Audio'] = ' '.join(audio_refs)
