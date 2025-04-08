@@ -13,7 +13,10 @@ import bs4
 # For word classes not listed here only the first form is used.
 ESSENTIAL_FORMS_BY_CLASS = dict(
     nimisõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
+    ainsussõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
     omadussõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
+    ülivõrre=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
+    keskvõrre=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
     mitmus=['mitmuse nimetav', 'mitmuse omastav', 'mitmuse osastav'],
     tegusõna=['ma-tegevusnimi', 'da-tegevusnimi', 'kindla kõneviisi oleviku ainsuse 3.p.'],
 )
