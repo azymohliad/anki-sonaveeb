@@ -11,11 +11,11 @@ import bs4
 
 # Essential to study forms per word class (part of speech).
 # For word classes not listed here only the first form is used.
-# TODO: Add mitmuse osastav, review
 ESSENTIAL_FORMS_BY_CLASS = dict(
-    nimisõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav'],
-    omadussõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav'],
-    tegusõna=['ma-tegevusnimi', 'da-tegevusnimi', 'kindla kõneviisi oleviku ainsuse 3.p.', 'tud-kesksõna'],
+    nimisõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
+    omadussõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav', 'mitmuse osastav'],
+    mitmus=['mitmuse nimetav', 'mitmuse omastav', 'mitmuse osastav'],
+    tegusõna=['ma-tegevusnimi', 'da-tegevusnimi', 'kindla kõneviisi oleviku ainsuse 3.p.'],
 )
 
 
