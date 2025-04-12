@@ -1,7 +1,8 @@
 import anki.lang
 from aqt.qt import (
     pyqtSignal, Qt, QEvent, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
-    QPushButton, QButtonGroup, QStackedWidget, QScrollArea, QFrame, QMessageBox
+    QPushButton, QButtonGroup, QStackedWidget, QScrollArea, QFrame, QMessageBox,
+    QCheckBox
 )
 from aqt.operations import QueryOp
 from aqt.theme import theme_manager
@@ -103,6 +104,20 @@ class SonaveebDialog(QWidget):
         mode_layout.addWidget(mode_label)
         mode_layout.addWidget(self._mode_selector)
 
+        # - Add audio checkbox
+        audio_tooltip = 'Save pronunciation audio into the notes'
+        self._audio_checkbox = QCheckBox()
+        self._audio_checkbox.toggled.connect(self._on_audio_enabled_changed)
+        self._audio_checkbox.setToolTip(audio_tooltip)
+        audio_label = QLabel('&Audio:')
+        audio_label.setToolTip(audio_tooltip)
+        audio_label.setStyleSheet(f'font-size: 10pt; color: {theme_manager.var(colors.FG_SUBTLE)}')
+        audio_label.setBuddy(self._mode_selector)
+        audio_layout = QVBoxLayout()
+        audio_layout.addWidget(audio_label)
+        audio_layout.addWidget(self._audio_checkbox)
+        audio_layout.setAlignment(self._audio_checkbox, Qt.AlignmentFlag.AlignHCenter)
+
         # - Populate header bar
         header_layout = QHBoxLayout()
         header_layout.addLayout(deck_layout)
@@ -113,6 +128,8 @@ class SonaveebDialog(QWidget):
         header_layout.addLayout(lang_layout)
         header_layout.addWidget(VSeparator(QFrame.Shadow.Sunken))
         header_layout.addLayout(mode_layout)
+        header_layout.addWidget(VSeparator(QFrame.Shadow.Sunken))
+        header_layout.addLayout(audio_layout)
         header_layout.setContentsMargins(10, 5, 10, 5)
         self._header_bar = QWidget()
         # CSS properties marked with "Native theme" comment simply duplicate
@@ -229,6 +246,9 @@ class SonaveebDialog(QWidget):
         except KeyError:
             mode = Sonaveeb.DEFAULT_MODE
         self._mode_selector.setCurrentText(mode.name)
+        # - Audio
+        save_audio = self._config.get('save_audio', False)
+        self._audio_checkbox.setChecked(save_audio)
 
         # Track Google translate requests in progress
         self.pending_translation_requests = set()
@@ -244,6 +264,9 @@ class SonaveebDialog(QWidget):
 
     def sonaveeb_mode(self):
         return self._mode_selector.currentData()
+
+    def audio_enabled(self):
+        return self._audio_checkbox.isChecked()
 
     def search_results(self):
         return [
@@ -328,6 +351,11 @@ class SonaveebDialog(QWidget):
             word_panel.set_notetype(notetype)
         self._save_config_value('notetype', notetype_id)
 
+    def _on_audio_enabled_changed(self, enabled):
+        for word_panel in self.search_results():
+            word_panel.set_audio_enabled(enabled)
+        self._save_config_value('save_audio', enabled)
+
     def _on_search_results_received(self, result):
         references, forms = result
         self._search_button.setEnabled(True)
@@ -352,6 +380,7 @@ class SonaveebDialog(QWidget):
             notetype = mw.col.models.get(self.notetype_id())
             for reference in references:
                 word_panel = WordInfoPanel(reference, self._sonaveeb, self.deck_id(), notetype, self.language_code())
+                word_panel.set_audio_enabled(self.audio_enabled())
                 word_panel.translations_requested.connect(self._on_word_translation_requested)
                 self._search_results_layout.addWidget(word_panel)
 

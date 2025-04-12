@@ -1,11 +1,42 @@
 import os
 import re
 import enum
+import logging
 import typing as tp
 import dataclasses as dc
 
 import requests
 import bs4
+
+
+# Essential to study forms per word class (part of speech).
+# For word classes not listed here only the first form is used.
+# TODO: Add mitmuse osastav, review
+ESSENTIAL_FORMS_BY_CLASS = dict(
+    nimisõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav'],
+    omadussõna=['ainsuse nimetav', 'ainsuse omastav', 'ainsuse osastav'],
+    tegusõna=['ma-tegevusnimi', 'da-tegevusnimi', 'kindla kõneviisi oleviku ainsuse 3.p.', 'tud-kesksõna'],
+)
+
+
+def compress_word_forms(forms: tp.List[str]) -> tp.List[str]:
+    '''Shortens word forms by deduplicating a common part.
+
+    For example: [suur, suure, suurt] -> [suur, -e, -t].
+    '''
+    prefix = os.path.commonprefix(forms)
+    if len(prefix) > 3 or prefix == forms[0]:
+        # The prefix is long enough or contains full 1st form (e.g. öö) - compress.
+        compressed = []
+        if forms[0] == prefix:
+            compressed.append(forms[0])
+        else:
+            compressed.append(forms[0].replace(prefix, f'{prefix}/'))
+        compressed.extend([f.replace(prefix, '-') for f in forms[1:]])
+        return compressed
+    else:
+        # The prefix is too short - return as is.
+        return forms
 
 
 class SonaveebMode(enum.Enum):
@@ -30,44 +61,70 @@ class WordInfo:
     word_id: int = None
     word: str = None
     word_class: str = None
+    word_audio_url: str = None
     url: str = None
     lexemes: tp.List[LexemeInfo] = None
-    morphology: tp.List[tp.Tuple[str]] = None
-    audio_urls: tp.List[str] = dc.field(default_factory=list)
+    morphology: tp.Dict[str, str] = dc.field(default_factory=dict)
+    morphology_audio_urls: tp.Dict[str, str] = dc.field(default_factory=dict)
 
-    def summary(self, lang=None):
-        data = {
-            'word_id': self.word_id,
-            'word': self.word,
-            'word_class': self.word_class,
-            'url': self.url,
-            'short_record': self.short_record(),
-            'morphology': self.morphology,
-            'lexemes': self.lexemes,
-        }
-        result = '\n'.join([f'{k}: {v}' for k, v in data.items() if v is not None])
-        return result
+    def __post_init__(self):
+        # Validate present form types
+        if missing_forms := self.missing_form_types():
+            logging.error(
+                'Missing expected forms for the word '
+                f'"{self.word}" [##{self.word_id}]: {missing_forms}'
+            )
 
-    def short_record(self):
-        forms = [form[0] for form in self.morphology if len(form) > 0]
-        if len(forms) > 2:
-            p1 = os.path.commonprefix([forms[0], forms[1]])
-            p2 = os.path.commonprefix([forms[0], forms[1]])
-            prefix = p1 if len(p1) > len(p2) else p2
-            if len(prefix) > 3 or prefix == forms[0]:
-                if forms[0] == prefix:
-                    short = forms[0]
-                else:
-                    short = forms[0].replace(prefix, f'{prefix}/')
-                for form in forms[1:]:
-                    short += ', ' + form.replace(prefix, '-')
-            else:
-                short = ', '.join(forms)
-        elif len(forms) > 0:
-            short = forms[0]
+    def audio_urls(self) -> tp.List[str]:
+        '''Returns a list audio URLs corresponding to essential_forms list.
+
+        Not every form is guaranteed to have an audio, but every audio is
+        guaranteed to be one of the essential forms.
+        '''
+        keys = self.present_form_types()
+        urls = [self.morphology_audio_urls.get(key) for key in keys]
+        urls = [u for u in urls if u is not None]
+        if not urls and self.word_audio_url is not None:
+            urls = [self.word_audio_url]
+        return urls
+
+    def essential_forms(self, compress=False, join=False) -> tp.Union[tp.List[str], str]:
+        '''Returns a list of essential to study forms of this word.
+
+        Args:
+            compress: avoid repeating a common part in every form, replace it with "-".
+                Unless it's too short. For example: [suur, suure, suurt] -> [suur, -e, -t].
+            join: return comma-separated string instead of a list.
+        Returns:
+            A list or a comma-separated string of word forms.
+        '''
+        keys = self.present_form_types()
+        if keys:
+            forms = [self.morphology[key] for key in keys]
         else:
-            short = self.word
-        return short
+            forms = [self.word]
+        if compress:
+            forms = compress_word_forms(forms)
+        if join:
+            forms = ', '.join(forms)
+        return forms
+
+    def present_form_types(self) -> tp.List[str]:
+        '''Returns essential form names that are present for this word.
+
+        It is expected that all essential forms for the word class
+        would be present, unless there's a parsing bug or Sõnaveeb inconsistency.
+        '''
+        keys = ESSENTIAL_FORMS_BY_CLASS.get(self.word_class, [])
+        return [k for k in keys if k in self.morphology]
+
+    def missing_form_types(self) -> tp.List[str]:
+        '''Returns essential form names that are missing for this word.
+
+        A non-empty list indicates either a parsing bug or Sõnaveeb inconsistency.
+        '''
+        keys = ESSENTIAL_FORMS_BY_CLASS.get(self.word_class, [])
+        return [k for k in keys if k not in self.morphology]
 
 
 @dc.dataclass
@@ -326,6 +383,11 @@ class Sonaveeb:
         if homonym_name := dom.find(class_='homonym-name'):
             info.word = homonym_name.span.string
 
+        if audio_button := dom.find('div', class_='content-title').find('button', class_='btn-speaker'):
+            if audio_url := audio_button.get('data-url-to-audio'):
+                info.word_audio_url = self.BASE_URL + audio_url
+
+        # Parse word class (part of speech)
         if word_class_tag := dom.find(class_='content-title').find(class_='tag'):
             info.word_class = word_class_tag.string
 
@@ -377,53 +439,20 @@ class Sonaveeb:
 
             info.lexemes.append(lexeme)
 
-        # Parse morphology
-        info.morphology = []
+        # Parse morphology forms and audio URLs
         if morphology_paradigm := dom_to_parse.find(class_='morphology-paradigm'):
             if morphology_table := morphology_paradigm.find('table'):
-                for row in morphology_table.find_all('tr'):
-                    cells = row.find_all('span', class_='form-value-field')
-                    if cells:
-                        entry = tuple(self._remove_eki_tags(c) for c in cells)
-                        info.morphology.append(entry)
+                cells = morphology_table.find_all('span', class_='form-value-field')
+                for cell in cells:
+                    key = cell.get('title').split(' - ')[0]
+                    value = self._remove_eki_tags(cell)
+                    info.morphology[key] = value
+                    if audio_button := cell.find_next_sibling('button', class_='btn-speaker'):
+                        if audio_url := audio_button.get('data-url-to-audio'):
+                            info.morphology_audio_urls[key] = self.BASE_URL + audio_url
 
         # Get audio URLs, prioritizing morphological forms
-        morphology_audio = self._parse_morphology_audio_urls(dom_to_parse)
-        info.audio_urls = morphology_audio if morphology_audio else self._parse_audio_urls(dom_to_parse)
-
         return info
-
-    def _parse_morphology_audio_urls(self, dom_to_parse) -> tp.List[str]:
-        '''Parse audio URLs from the morphology paradigm section.
-
-        Args:
-            dom_to_parse: BeautifulSoup DOM element to parse
-
-        Returns:
-            List of audio URLs for different morphological forms. Empty list if none found.
-        '''
-        audio_urls = []
-        if morph := dom_to_parse.find(class_='morphology-paradigm'):
-            for button in morph.find_all('button', class_='btn-speaker'):
-                if audio_url := button.get('data-url-to-audio'):
-                    full_url = self.BASE_URL + audio_url
-                    if full_url not in audio_urls:
-                        audio_urls.append(full_url)
-        return audio_urls
-
-    def _parse_audio_urls(self, dom_to_parse) -> tp.List[str]:
-        '''Parse the main pronunciation audio URL from the content title.
-
-        Args:
-            dom_to_parse: BeautifulSoup DOM element to parse
-
-        Returns:
-            List containing the main audio URL. Empty list if none found.
-        '''
-        main_button = dom_to_parse.find('div', class_='content-title').find('button', class_='btn-speaker')
-        if main_button and (audio_url := main_button.get('data-url-to-audio')):
-            return [self.BASE_URL + audio_url]
-        return []
 
     @staticmethod
     def _remove_eki_tags(element):

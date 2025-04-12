@@ -37,6 +37,7 @@ class LexemeWidget(QWidget):
         self.translations_limit = translations_limit
         self.translations = []
         self.lang = None
+        self.translation_in_progress = False
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.layout = QVBoxLayout(self)
@@ -116,6 +117,7 @@ class LexemeWidget(QWidget):
 
     def request_cross_translations(self):
         '''Request translations for a specific lexeme'''
+        self.translation_in_progress = True
         operation = QueryOp(
             parent=self,
             op=lambda col: cross_translate(
@@ -130,12 +132,14 @@ class LexemeWidget(QWidget):
 
     def _on_translations_request_error(self, error):
         '''Handle translation request errors'''
+        self.translation_in_progress = False
         self.translations_requested.emit(False)
         self.set_translation_status('Failed to translate :(')
 
     def _on_translations_received(self, translations):
         '''Handle received translations'''
         # Test if this widget still exists
+        self.translation_in_progress = False
         try:
             self.isVisible()
         except RuntimeError:
@@ -215,6 +219,8 @@ class LexemesContainer(QWidget):
 
     def get_widget(self, index: int) -> LexemeWidget:
         '''Get lexeme widget at specified index'''
+        if index < 0:
+            return None
         return self.lexeme_widgets[index]
 
     def get_selected_index(self) -> int:

@@ -31,7 +31,7 @@
 }
 
 .nightMode .rection {
-    color: #AAA;
+    color: #aaa;
 }
 
 .definition {
@@ -70,4 +70,13 @@
     left: 0;
     width: 100%;
     margin-bottom: 20px;
+}
+
+.soundLink {
+    width: 32px;
+    height: 32px;
+}
+
+.playImage {
+    opacity: 25%;
 }
