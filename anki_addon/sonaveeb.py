@@ -340,7 +340,7 @@ class Sonaveeb:
         # Parse lexemes
         info.lexemes = []
         for lexeme_dom in dom.find_all(id=re.compile('^lexeme-section')):
-            lexeme = self._parse_lexeme(lexeme_dom)
+            lexeme = self._parse_lexeme(lexeme_dom, ignore_nested=True)
             if lexeme is not None:
                 info.lexemes.append(lexeme)
 

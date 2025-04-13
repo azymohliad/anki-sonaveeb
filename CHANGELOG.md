@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.1 - 2025-04-13
+
+- Revert accidentally enabled nexted lexemes.
+
 ## v0.9.0 - 2025-04-13
 
 - Add audio pronunciation support.
