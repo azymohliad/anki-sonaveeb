@@ -409,7 +409,10 @@ class WordInfoPanel(QGroupBox):
         self._buttons_status_label.hide()
         if self.note is not None:
             self.note['Audio'] = ' '.join(audio_refs)
-            mw.col.update_note(self.note)
+            try:
+                mw.col.update_note(self.note)
+            except anki.errors.NotFoundError as e:
+                QMessageBox.warning(self, 'Failed to add audio', str(e))
         self.refresh_buttons()
 
     def _on_pronounce_button_clicked(self):
