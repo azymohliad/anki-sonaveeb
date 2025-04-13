@@ -58,8 +58,10 @@ class LexemeWidget(QWidget):
         self.layout.addLayout(translation_layout)
 
         # Add definition if present
-        if lexeme.definition:
-            definition_label = QLabel(f'**Definition:** *{lexeme.definition}*')
+        if lexeme.definitions:
+            # Usually when multiple definitions is available, they end with semicolon,
+            # so it's ok to join them over a space character
+            definition_label = QLabel(f'**Definition:** *{" ".join(lexeme.definitions)}*')
             definition_label.setTextFormat(Qt.TextFormat.MarkdownText)
             definition_label.setWordWrap(True)
             self.layout.addWidget(definition_label)
@@ -252,9 +254,9 @@ class LexemesContainer(QWidget):
             if not self.pending_translation_requests:
                 # The first translation request started
                 self.translations_requested.emit(True)
-            self.pending_translation_requests.add(widget.lexeme.number)
+            self.pending_translation_requests.add(widget.lexeme.lexeme_id)
         else:
-            self.pending_translation_requests.discard(widget.lexeme.number)
+            self.pending_translation_requests.discard(widget.lexeme.lexeme_id)
             if not self.pending_translation_requests:
                 # The last translation request finished
                 self.translations_requested.emit(False)

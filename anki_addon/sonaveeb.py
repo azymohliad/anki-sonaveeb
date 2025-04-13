@@ -1,3 +1,12 @@
+# PLEASE DON'T USE THIS CODE FOR BATCH REQUESTS
+#
+# Neither directly, nor by porting it into your own software.
+# We don't want to abuse Sõnaveeb and overload its servers.
+#
+# Even besides ethical considerations, it might leave no choice
+# to Sõnaveeb admins & devs but to change HTML structures
+# arbitrarily in order to break scrappers, including this one.
+
 import os
 import re
 import enum
@@ -49,13 +58,13 @@ class SonaveebMode(enum.Enum):
 
 @dc.dataclass
 class LexemeInfo:
-    definition: str = None
+    lexeme_id: int
+    definitions: tp.List[str] = dc.field(default_factory=list)
     rection: tp.List[str] = dc.field(default_factory=list)
     synonyms: tp.List[str] = dc.field(default_factory=list)
     translations: tp.Dict[str, tp.List[str]] = dc.field(default_factory=dict)
     examples: tp.List[str] = dc.field(default_factory=list)
-    tags: tp.List[str] = dc.field(default_factory=list)
-    number: str = None
+    marker: str = None
     level: str = None
 
 
@@ -285,165 +294,58 @@ class Sonaveeb:
     def _parse_search_results(self, dom, lang=None):
         # Parse homonyms list
         homonyms = []
-        for homonym in dom.find_all('li', class_='homonym-list-item'):
+        for homonym_block in dom.find_all('li', class_='homonym-list-item'):
             kwargs = {}
-            if word_id := homonym.find('input', attrs=dict(name='word-id')):
+            if word_id := homonym_block.find('input', attrs=dict(name='word-id')):
                 kwargs['word_id'] = word_id['value']
-            if url := homonym.find('input', attrs=dict(name='word-select-url')):
+            if url := homonym_block.find('input', attrs=dict(name='word-select-url')):
                 kwargs['url'] = self.BASE_URL + '/' + url['value']
-            if language := homonym.find(class_='lang-code'):
+            if language := homonym_block.find(class_='lang-code'):
                 kwargs['lang'] = language.string
-            if name := homonym.find(class_='homonym-name'):
-                kwargs['name'] = name.span.string
-            if matches := homonym.find(class_='homonym-matches'):
-                kwargs['matches'] = matches.string
-            if summary := homonym.find(class_='homonym-intro'):
-                kwargs['summary'] = summary.string
+            if body := homonym_block.find(class_='homonym__body'):
+                if name := body.find(class_='text-body-two'):
+                    kwargs['name'] = name.span.span.string
+                if text := body.find(class_='homonym__text'):
+                    if matches := text.find(class_='homonym__matches'):
+                        kwargs['matches'] = matches.string
+                    kwargs['summary'] = text.p.string
             homonyms.append(WordReference(**kwargs))
+
         # Filter by language
         if lang is not None:
             homonyms = [r for r in homonyms if r.lang == lang]
         return homonyms
 
-    def _parse_lexeme_definition(self, definition_row):
-        '''Extract definition and language level from a definition row'''
-        definition = None
-        level = None
-
-        if not definition_row:
-            return definition, level
-
-        # Extract language level if present
-        if level := definition_row.find(class_='additional-meta', title='Keeleoskustase'):
-            level = level.string.strip()
-
-        # Extract definitions
-        definitions = []
-        for def_entry in definition_row.find_all(id=re.compile('^definition-entry')):
-            if def_text := self._remove_eki_tags(def_entry.span):
-                definitions.append(def_text.strip())
-
-        if definitions:
-            definition = ' '.join(definitions)
-
-        return definition, level
-
-    def _parse_lexeme_rection(self, match) -> tp.List[str]:
-        '''Extract rection patterns from a lexeme section.
-
-        Args:
-            match: Element containing the lexeme section
-
-        Returns:
-            List of rection patterns (e.g. ["keda/mida*", "kellel + mida teha"])
-        '''
-        rection_div = match.find(class_='rekts-est')
-        if not rection_div:
-            return []
-
-        rections = []
-        for span in rection_div.find_all('span', class_='tag'):
-            if span.string:
-                rections.append(span.string)
-        return rections
-
-    def _parse_lexeme_translations(self, translation_panels):
-        '''Extract translations from translation panels'''
-        translations = {}
-        for panel in translation_panels:
-            if lang_code := panel.find(class_='lang-code'):
-                lang = lang_code.string
-                values = [
-                    self._remove_eki_tags(a.span.span)
-                    for a in panel.find_all('a', class_='matching-word')
-                ]
-                if values:
-                    translations[lang] = values
-        return translations
-
-    def _parse_lexeme_examples(self, match):
-        '''Extract example sentences'''
-        examples = []
-        for example in match.find_all(class_='example-text-value'):
-            if example.string:
-                examples.append(example.string)
-        return examples
-
-    def _get_lexeme_number(self, match, fallback_number):
-        '''Get lexeme number from match or use fallback'''
-        if lexeme_number := match.find(class_='lexeme-level'):
-            return lexeme_number.string
-        return str(fallback_number)
-
     def _parse_word_info(self, dom):
         info = WordInfo()
 
-        # Get the word_id from the url
+        # Get word_id from the url
         if word_id_input := dom.find('input', id='selected-word-homonym-nr'):
             info.word_id = word_id_input['value']
 
         # Get basic word info
-        if homonym_name := dom.find(class_='homonym-name'):
+        title_block = dom.find(class_='word-results').div.div
+        if homonym_name := title_block.find(class_='search__lex-title'):
             info.word = homonym_name.span.string
 
-        if audio_button := dom.find('div', class_='content-title').find('button', class_='btn-speaker'):
-            if audio_url := audio_button.get('data-url-to-audio'):
+        # Get main audio URL
+        if audio_button := title_block.find('button', class_='btn-speaker'):
+            if audio_url := audio_button.get('data-audio-url'):
                 info.word_audio_url = self.BASE_URL + audio_url
 
         # Parse word class (part of speech)
-        if word_class_tag := dom.find(class_='content-title').find(class_='tag'):
+        if word_class_tag := title_block.find(class_='lang-code--unrestricted'):
             info.word_class = word_class_tag.string
 
-        # Initialize lexemes list
+        # Parse lexemes
         info.lexemes = []
-
-        # Find specific word-details div for this homonym
-        dom_to_parse = dom
-        if info.word_id:
-            if word_details := dom.find('div', attrs={'data-homonymnr': info.word_id}):
-                dom_to_parse = word_details
-
-        # Parse each lexeme section
-        sequential_number = 1
-        for match in dom_to_parse.find_all(id=re.compile('^lexeme-section')):
-            # Get lexeme number
-            number = self._get_lexeme_number(match, sequential_number)
-            sequential_number += 1
-
-            # Skip sub-definitions
-            if number and '.' in number:
-                continue
-
-            # Parse lexeme details
-            definition, level = self._parse_lexeme_definition(match.find(class_='definition-row'))
-            translations = self._parse_lexeme_translations(
-                match.find_all(id=re.compile('^matches-show-more-panel'))
-            )
-            examples = self._parse_lexeme_examples(match)
-            rection = self._parse_lexeme_rection(match)
-            tags = [t.string for t in match.find_all(class_='tag') if t.string]
-            synonyms = [
-                a.span.span.string
-                for a in match.find_all('a', class_='synonym')
-                if a.span and a.span.span
-            ]
-
-            # Create lexeme object
-            lexeme = LexemeInfo(
-                definition=definition,
-                rection=rection,
-                synonyms=synonyms,
-                translations=translations,
-                examples=examples,
-                tags=tags,
-                number=number,
-                level=level,
-            )
-
-            info.lexemes.append(lexeme)
+        for lexeme_dom in dom.find_all(id=re.compile('^lexeme-section')):
+            lexeme = self._parse_lexeme(lexeme_dom)
+            if lexeme is not None:
+                info.lexemes.append(lexeme)
 
         # Parse morphology forms and audio URLs
-        if morphology_paradigm := dom_to_parse.find(class_='morphology-paradigm'):
+        if morphology_paradigm := dom.find(class_='morphology-paradigm'):
             if morphology_table := morphology_paradigm.find('table'):
                 cells = morphology_table.find_all('span', class_='form-value-field')
                 for cell in cells:
@@ -451,11 +353,62 @@ class Sonaveeb:
                     value = self._remove_eki_tags(cell)
                     info.morphology[key] = value
                     if audio_button := cell.find_next_sibling('button', class_='btn-speaker'):
-                        if audio_url := audio_button.get('data-url-to-audio'):
+                        if audio_url := audio_button.get('data-audio-url'):
                             info.morphology_audio_urls[key] = self.BASE_URL + audio_url
 
-        # Get audio URLs, prioritizing morphological forms
         return info
+
+    def _parse_lexeme(self, dom, ignore_nested=False):
+        lexeme_id = int(dom.attrs['id'].rsplit('-', maxsplit=1)[-1])
+        lexeme = LexemeInfo(lexeme_id)
+
+        # Get lexeme list marker
+        if marker_block := dom.find(class_='lexeme-level'):
+            lexeme.marker = marker_block.string
+
+        # Skip nested lexemes
+        if ignore_nested and lexeme.marker and '.' in lexeme.marker:
+            return None
+
+        # Parse definitions and level
+        if definition_row := dom.find(class_='definition-row'):
+            # Extract language level if present
+            if level_span := definition_row.find(title='Keeleoskustase'):
+                lexeme.level = level_span.string.strip()
+            # Extract definitions
+            for entry in definition_row.find_all(class_='definition-value'):
+                if text := self._remove_eki_tags(entry):
+                    lexeme.definitions.append(text.strip())
+
+        # Parse translations
+        translation_blocks = dom.find_all(id=re.compile('^matches-show-more-panel'))
+        for block in translation_blocks:
+            if lang_code_span := block.find(class_='lang-code'):
+                lang = lang_code_span.string
+                translations = [
+                    self._remove_eki_tags(translation_span.a.span)
+                    for translation_span in block.find_all(class_='mr-1')
+                ]
+                if translations:
+                    lexeme.translations[lang] = translations
+
+        # Parse examples
+        for example_span in dom.find_all(class_='example-text'):
+            if example_span.span.string:
+                lexeme.examples.append(example_span.span.string)
+
+        # Parse rections
+        if rection_div := dom.find(class_='rekts-est'):
+            for rection_span in rection_div.find_all('span', class_='lang-code--unrestricted'):
+                if rection_span.string:
+                    lexeme.rection.append(rection_span.string)
+
+        # Parse synonyms
+        for synonym_link in dom.find_all('a', class_='synonym'):
+            if synonym_link.span:
+                lexeme.synonyms.append(synonym_link.span.string)
+
+        return lexeme
 
     @staticmethod
     def _remove_eki_tags(element):
