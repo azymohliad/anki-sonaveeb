@@ -1,3 +1,12 @@
+# PLEASE DON'T USE THIS CODE FOR BATCH REQUESTS
+#
+# Neither directly, nor by porting it into your own software.
+# We don't want to abuse Sõnaveeb and overload its servers.
+#
+# Even besides ethical considerations, it might leave no choice
+# to Sõnaveeb admins & devs but to change HTML structures
+# arbitrarily in order to break scrappers, including this one.
+
 import os
 import re
 import enum

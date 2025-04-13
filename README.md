@@ -61,6 +61,10 @@ ln -s ${PWD}/anki_addon /path/to/Anki2/addons21/sonaveeb
 
 See also: [Writing Anki Add-ons](https://addon-docs.ankiweb.net/) tutorial book.
 
-## Sõnaveeb Copyrights
+## License
 
-The dictionary data is provided by Sõnaveeb and is a subject to [its copyrights](https://sonaveeb.ee/about#autor).
+The code is provided under [GNU GPLv3 license](LICENSE).
+
+Additionally, please don't use Sõnaveeb parsing module for batch requests. Neither directly, nor by porting it into your own software. This addon doesn't want to abuse Sõnaveeb or contribute to overloading its servers.
+
+The dictionary data is obtained from Sõnaveeb and is subject to [its copyrights](https://sonaveeb.ee/about#autor).
