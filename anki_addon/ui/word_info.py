@@ -340,7 +340,7 @@ class WordInfoPanel(QGroupBox):
             'Morphology': self.word_info.essential_forms(compress=True, join=True),
             'URL': self.word_info.url,
             'Translation': ', '.join(lexeme_widget.translations),
-            'Definition': lexeme.definition or '',
+            'Definition': ';\n'.join(lexeme.definitions),
             'Examples': '<br>'.join(lexeme.examples[:EXAMPLES_LIMIT]),
             'Rection': ', '.join(lexeme.rection),
         }
