@@ -59,7 +59,9 @@ class LexemeWidget(QWidget):
 
         # Add definition if present
         if lexeme.definitions:
-            definition_label = QLabel(f'**Definition:** *{";\n".join(lexeme.definitions)}*')
+            # Usually when multiple definitions is available, they end with semicolon,
+            # so it's ok to join them over a space character
+            definition_label = QLabel(f'**Definition:** *{" ".join(lexeme.definitions)}*')
             definition_label.setTextFormat(Qt.TextFormat.MarkdownText)
             definition_label.setWordWrap(True)
             self.layout.addWidget(definition_label)
