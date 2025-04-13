@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.9.0 - 2025-04-13
+
+- Add audio pronunciation support.
+- Refined included word forms: add mitmuse osasatav for nouns and adjectives, remove -tud form for verbs.
+- Fixed incorrect word forms for plural-only words.
+- Fixed breakage after the latest Sõnaveeb update.
+
 ## v0.8.2 - 2025-01-03
 
 - Fixed UI regressions on MacOS and native theme on other platforms.
