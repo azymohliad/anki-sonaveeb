@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.2 - 2025-04-25
+
+- Prefer short form of plural partitive (mitmuse osastav).
+
 ## v0.9.1 - 2025-04-13
 
 - Revert accidentally enabled nexted lexemes.
