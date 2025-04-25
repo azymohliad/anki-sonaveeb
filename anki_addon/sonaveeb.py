@@ -351,7 +351,11 @@ class Sonaveeb:
                 for cell in cells:
                     key = cell.get('title').split(' - ')[0]
                     value = self._remove_eki_tags(cell)
-                    info.morphology[key] = value
+                    # Some forms have multiple entries, use the first one.
+                    # For example, mitmuse osastav has short and long form.
+                    # TODO: Save all and pick one via WordInfo.essential_forms.
+                    if key not in info.morphology:
+                        info.morphology[key] = value
                     if audio_button := cell.find_next_sibling('button', class_='btn-speaker'):
                         if audio_url := audio_button.get('data-audio-url'):
                             info.morphology_audio_urls[key] = self.BASE_URL + audio_url
