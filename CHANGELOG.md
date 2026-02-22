@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.9.3 - 2026-02-22
+
+- Fix translation parsing after Sõnaveeb update.
+
 ## v0.9.2 - 2025-04-25
 
 - Prefer short form of plural partitive (mitmuse osastav).
