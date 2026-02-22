@@ -390,8 +390,8 @@ class Sonaveeb:
             if lang_code_span := block.find(class_='lang-code'):
                 lang = lang_code_span.string
                 translations = [
-                    self._remove_eki_tags(translation_span.a.span)
-                    for translation_span in block.find_all(class_='mr-1')
+                    self._remove_eki_tags(translation_item.a.span)
+                    for translation_item in block.find_all('li')
                 ]
                 if translations:
                     lexeme.translations[lang] = translations
