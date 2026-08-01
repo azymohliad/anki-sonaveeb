@@ -258,8 +258,12 @@ class WordInfoPanel(QGroupBox):
             if k not in skip_fields
         ])
 
-        # Check audio presence only
-        identical &= bool(self.note['Audio']) == self._audio_enabled
+        # Check audio presence only, and only for words that have any audio
+        if self._audio_enabled:
+            if self.word_info.audio_urls():
+                identical &= bool(self.note['Audio'])
+        else:
+            identical &= not self.note['Audio']
         return identical
 
     def is_note_type_updated(self):
