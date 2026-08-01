@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fix breakage after Sõnaveeb 1.48 update (removed worddetails endpoint, new homonym link format).
+- Keep detecting notes created before the update, so they can be migrated with "Replace".
+
 ## v0.9.3 - 2026-02-22
 
 - Fix translation parsing after Sõnaveeb update.

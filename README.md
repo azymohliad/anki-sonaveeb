@@ -1,5 +1,3 @@
-**WARNING: The addon is currently broken. It needs to catch up with the latest Sõnaveeb update to be operational again.**
-
 # Anki Sõnaveeb Integration
 
 [🇺🇦 Українською](README_UK.md)
