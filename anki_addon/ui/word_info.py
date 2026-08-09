@@ -182,16 +182,16 @@ class WordInfoPanel(QGroupBox):
         '''
         if self.word_info is None:
             return
-        # Search note by Word ID (modern notes)
         deck = mw.col.decks.get(self.deck_id)['name']
-        query = f'"Word ID:{self.word_info.word_id}" deck:"{deck}"'
-        notes = mw.col.find_notes(query)
-        if not notes:
-            # Fallback to search by URL (legacy notes)
-            query = f'URL:"{self.word_info.url}" deck:"{deck}"'
-            notes = mw.col.find_notes(query)
-        if notes:
-            self.note = mw.col.get_note(notes[0])
+        queries = [
+            f'"Word ID:{self.word_info.word_id}"',
+            f'URL:"{self.word_info.url}"',
+            f'"URL:re:{self.word_info.legacy_url_regex()}"',
+        ]
+        for query in queries:
+            if notes := mw.col.find_notes(f'{query} deck:"{deck}"'):
+                self.note = mw.col.get_note(notes[0])
+                break
         self.refresh_buttons()
 
     def refresh_buttons(self):
@@ -258,8 +258,12 @@ class WordInfoPanel(QGroupBox):
             if k not in skip_fields
         ])
 
-        # Check audio presence only
-        identical &= bool(self.note['Audio']) == self._audio_enabled
+        # Check audio presence only, and only for words that have any audio
+        if self._audio_enabled:
+            if self.word_info.audio_urls():
+                identical &= bool(self.note['Audio'])
+        else:
+            identical &= not self.note['Audio']
         return identical
 
     def is_note_type_updated(self):

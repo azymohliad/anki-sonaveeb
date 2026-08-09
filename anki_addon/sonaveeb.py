@@ -12,6 +12,7 @@ import re
 import enum
 import logging
 import typing as tp
+import urllib.parse
 import dataclasses as dc
 
 import requests
@@ -70,7 +71,7 @@ class LexemeInfo:
 
 @dc.dataclass
 class WordInfo:
-    word_id: int = None
+    word_id: str = None
     word: str = None
     word_class: str = None
     word_audio_url: str = None
@@ -121,6 +122,18 @@ class WordInfo:
             forms = ', '.join(forms)
         return forms
 
+    def legacy_url_regex(self) -> str:
+        '''Regex matching URL variants stored in notes by older addon versions.
+
+        Tolerates historical variations: repeated slashes after the domain,
+        an optional dataset segment (eki/dsall), and a missing language suffix.
+        '''
+        word, homonym_nr, lang = self.url.rsplit('/', 3)[1:]
+        return (
+            r'sonaveeb\.ee/+search/\w+/dlall/(?:\w+/)?'
+            f'{re.escape(word)}/{homonym_nr}(?:/{lang})?$'
+        )
+
     def present_form_types(self) -> tp.List[str]:
         '''Returns essential form names that are present for this word.
 
@@ -141,7 +154,7 @@ class WordInfo:
 
 @dc.dataclass
 class WordReference:
-    word_id: int
+    word_id: str
     url: str
     lang: str
     name: str = None
@@ -153,7 +166,6 @@ class WordReference:
 class LookupUrls:
     forms: str
     search: str
-    details: str
 
 
 class Sonaveeb:
@@ -166,13 +178,11 @@ class Sonaveeb:
     MODE_URLS = {
         SonaveebMode.Lite: LookupUrls(
             forms='https://sonaveeb.ee/searchwordfrag/lite/{word}',
-            search='https://sonaveeb.ee/search/lite/dlall/{word}',
-            details='https://sonaveeb.ee/worddetails/lite/{word_id}'
+            search='https://sonaveeb.ee/search/lite/dlall/{word}'
         ),
         SonaveebMode.Advanced: LookupUrls(
             forms='https://sonaveeb.ee/searchwordfrag/unif/{word}',
-            search='https://sonaveeb.ee/search/unif/dlall/eki/{word}',
-            details='https://sonaveeb.ee/worddetails/unif/{word_id}'
+            search='https://sonaveeb.ee/search/unif/dlall/eki/{word}'
         )
     }
     DEFAULT_MODE = SonaveebMode.Lite
@@ -234,7 +244,7 @@ class Sonaveeb:
             word_info: WordInfo object.
         '''
         # Request word details page
-        dom = self._word_details_dom(reference.word_id, timeout=timeout)
+        dom = self._word_details_dom(reference.url, timeout=timeout)
 
         # Save HTML page for debugging
         if debug:
@@ -285,9 +295,8 @@ class Sonaveeb:
         resp = self._request(url, timeout=timeout)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
-    def _word_details_dom(self, word_id, timeout=None):
+    def _word_details_dom(self, url, timeout=None):
         self._ensure_session(timeout=timeout)
-        url = self.urls.details.format(word_id=word_id)
         resp = self._request(url, timeout=timeout)
         return bs4.BeautifulSoup(resp.text, 'html.parser')
 
@@ -295,11 +304,17 @@ class Sonaveeb:
         # Parse homonyms list
         homonyms = []
         for homonym_block in dom.find_all('li', class_='homonym-list-item'):
-            kwargs = {}
-            if word_id := homonym_block.find('input', attrs=dict(name='word-id')):
-                kwargs['word_id'] = word_id['value']
-            if url := homonym_block.find('input', attrs=dict(name='word-select-url')):
-                kwargs['url'] = self.BASE_URL + '/' + url['value']
+            link = homonym_block.find('a', class_='homonym-item')
+            if link is None or not link.get('href'):
+                continue
+            href = link['href']
+            # /search/lite/dlall/{word}/{nr}/{lang} or /search/unif/dlall/eki/{word}/{nr}/{lang}
+            segments = [urllib.parse.unquote(s) for s in href.strip('/').split('/')]
+            word, homonym_nr, word_lang = segments[-3:]
+            kwargs = dict(
+                word_id=f'{word}-{homonym_nr}-{word_lang}',
+                url=self.BASE_URL + href,
+            )
             if language := homonym_block.find(class_='lang-code'):
                 kwargs['lang'] = language.string
             if body := homonym_block.find(class_='homonym__body'):
