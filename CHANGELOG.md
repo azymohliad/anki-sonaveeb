@@ -1,8 +1,12 @@
 # Changelog
 
+## v0.9.5 - 2026-11-14
+
+- Fix fallback translation: switch from Google Translate to MyMemory.
+
 ## v0.9.4 - 2026-08-09
 
-- Fix breakage after Sõnaveeb 1.48 update (removed worddetails endpoint, new homonym link format).
+- Fix breakage after Sõnaveeb 1.48 update (removed word-details endpoint, new homonym link format).
 - Keep detecting notes created before the update, so they can be migrated with "Replace".
 
 ## v0.9.3 - 2026-02-22
