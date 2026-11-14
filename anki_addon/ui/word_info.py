@@ -169,7 +169,7 @@ class WordInfoPanel(QGroupBox):
         self._morphology_label.setText(f'**Forms**: {data.essential_forms(compress=True, join=True)}')
         self._class_label.setText(f'**Class**: {data.word_class}')
         self._class_label.setVisible(data.word_class is not None)
-        self._lexemes_container.set_data(data.lexemes, data.word_class)
+        self._lexemes_container.set_data(data.lexemes, data.word, data.word_class)
         self._stack.setCurrentWidget(self._content)
         self._pronounce_button.setVisible(bool(data.word_audio_url))
         # Request translations
