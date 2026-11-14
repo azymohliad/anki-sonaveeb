@@ -12,7 +12,7 @@ from aqt.theme import theme_manager
 from aqt.operations import QueryOp
 
 from ..sonaveeb import LexemeInfo
-from ..gtranslate import cross_translate
+from ..translate import cross_translate
 from ..globals import REQUEST_TIMEOUT
 from .common import HSeparator
 
@@ -26,12 +26,14 @@ class LexemeWidget(QWidget):
     def __init__(
             self,
             lexeme: LexemeInfo,
+            word: str,
             word_class: str,
             examples_limit: int = None,
             translations_limit: int = None,
             parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.lexeme = lexeme
+        self.word = word
         self.word_class = word_class
         self.examples_limit = examples_limit
         self.translations_limit = translations_limit
@@ -100,7 +102,7 @@ class LexemeWidget(QWidget):
             self.set_translation_status('No translations available')
         else:
             # Request translations from external source
-            self.set_translation_status('Google translating...')
+            self.set_translation_status('Auto-translating...')
             self.request_cross_translations()
         return bool(translations)
 
@@ -123,7 +125,7 @@ class LexemeWidget(QWidget):
         operation = QueryOp(
             parent=self,
             op=lambda col: cross_translate(
-                sources=self.lexeme.translations,
+                sources=dict(et=[self.word], **self.lexeme.translations),
                 lang=self.lang,
                 timeout=REQUEST_TIMEOUT,
             ),
@@ -147,7 +149,7 @@ class LexemeWidget(QWidget):
         except RuntimeError:
             return
         self.translations_requested.emit(False)
-        self.set_translation_status('Google translated')
+        self.set_translation_status('Auto-translated')
         # As a special case, add "to" before verbs infinitives in English
         if self.lang == 'en' and self.word_class == 'tegusõna':
             translations = [f'to {verb}'.replace('to to ', 'to ') for verb in translations]
@@ -167,7 +169,6 @@ class LexemesContainer(QWidget):
 
     def __init__(
             self,
-            lexemes: List[LexemeInfo] = None,
             lexemes_limit: int = None,
             examples_limit: int = None,
             translations_limit: int = None,
@@ -183,10 +184,8 @@ class LexemesContainer(QWidget):
         self.button_group = QButtonGroup(self)
         self.button_group.idToggled.connect(self._on_button_toggled)
         self.pending_translation_requests = set()
-        if lexemes:
-            self.set_data(lexemes)
 
-    def set_data(self, lexemes: List[LexemeInfo], word_class: str):
+    def set_data(self, lexemes: List[LexemeInfo], word: str, word_class: str):
         '''Update the lexeme display with new data'''
         self.clear()
         for i, lexeme in enumerate(lexemes[:self.lexemes_limit]):
@@ -195,6 +194,7 @@ class LexemesContainer(QWidget):
             radio_button = QRadioButton()
             lexeme_widget = LexemeWidget(
                 lexeme=lexeme,
+                word=word,
                 word_class=word_class,
                 examples_limit=self.examples_limit,
                 translations_limit=self.translations_limit,

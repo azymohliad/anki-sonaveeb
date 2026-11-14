@@ -250,7 +250,7 @@ class SonaveebDialog(QWidget):
         save_audio = self._config.get('save_audio', False)
         self._audio_checkbox.setChecked(save_audio)
 
-        # Track Google translate requests in progress
+        # Track auto-translate requests in progress
         self.pending_translation_requests = set()
 
     def language_code(self):

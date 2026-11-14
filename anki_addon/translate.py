@@ -1,26 +1,38 @@
 import os
-import bs4
 import requests
 import typing as tp
 from collections import Counter
 
+URL = 'https://api.mymemory.translated.net/get?q={text}&langpair={source_lang}|{target_lang}'
 
-URL = 'https://translate.google.com/m?tl={target_lang}&sl={source_lang}&q={text}'
 
-
-def translate(text: str, target_lang: str = 'en', source_lang: str = 'et', timeout: float = None, debug: bool = False):
-    '''Translate text with Google Translate.'''
-    # GET request to google translate does not requrie authentication
+def translate(
+    text: str,
+    target_lang: str = 'en',
+    source_lang: str = 'et',
+    timeout: tp.Optional[float] = None,
+    cleanup: bool = True
+) -> tp.List[str]:
+    '''Translates text with MyMemory'''
     url = URL.format(target_lang=target_lang, source_lang=source_lang, text=text)
-    resp = requests.get(url, timeout=timeout)
+    headers = {'user-agent': 'azymohliad/anki-sonaveeb'}
+    resp = requests.get(url, timeout=timeout, headers=headers)
     if resp.status_code != 200:
         raise RuntimeError(f'Request failed: {resp.status_code}')
-    dom = bs4.BeautifulSoup(resp.text, 'html.parser')
-    if debug:
-        open(os.path.join('debug', f'gtranslate_{text}.html'), 'w').write(dom.prettify())
-    if result := dom.find('div', class_='result-container'):
-        result = result.string
-    return result
+    resp_data = resp.json()
+    translation = resp_data["responseData"]["translatedText"]
+    if cleanup:
+        # Convert to lowercase, unless the original had uppercase characters.
+        if text.islower():
+            translation = translation.lower()
+        # Remove punctuation, unless the input had it
+        punctuation = ".,!?"
+        if not any(c in text for c in punctuation):
+            mapping = {ord(c): None for c in punctuation}
+            translation = translation.translate(mapping)
+        # Strip spaces
+        translation = translation.strip()
+    return translation
 
 
 def cross_translate(sources: tp.Dict[str, tp.List[str]], lang: str, timeout: float = None):
@@ -42,7 +54,7 @@ def cross_translate(sources: tp.Dict[str, tp.List[str]], lang: str, timeout: flo
             source_lang=source_lang,
             timeout=timeout
         )
-        translations += [t.strip() for t in translation.lower().split(',')]
+        translations += [t.strip() for t in translation.split(',')]
     counted = Counter(translations)
     threshold = min(len(sources), max(counted.values()))
     ordered = sorted(counted.items(), key=lambda x: x[1], reverse=True)
